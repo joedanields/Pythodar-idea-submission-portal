@@ -5,6 +5,7 @@ import html2canvas from 'html2canvas';
 const Template = () => {
   // State for form fields
   const [formData, setFormData] = useState({
+    rollNo: '', // Added roll number field
     expNo: '',
     expTitle: '',
     aim: '',
@@ -102,6 +103,7 @@ const Template = () => {
   const validateForm = () => {
     const newErrors = {};
     
+    if (!formData.rollNo) newErrors.rollNo = "Roll number is required";
     if (!formData.expNo) newErrors.expNo = "Experiment number is required";
     if (!formData.expTitle) newErrors.expTitle = "Experiment title is required";
     if (!formData.aim) newErrors.aim = "Aim is required";
@@ -126,214 +128,235 @@ const Template = () => {
     }
   };
 
-  // Generate PDF from form data
-// Generate PDF from form data with border and header box
-// Generate PDF from form data with border and header box
-const generatePDF = async () => {
-  setIsGeneratingPdf(true);
-  
-  try {
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const borderMargin = 10; // 10mm border margin
-    const contentMargin = 20; // 20mm content margin from border
-    const contentWidth = pageWidth - (2 * (borderMargin + contentMargin));
+  // Generate PDF from form data with border and header box
+  const generatePDF = async () => {
+    setIsGeneratingPdf(true);
     
-    // Function to add border to each page
-    const addPageBorder = () => {
-      // Add border around the page
-      pdf.setLineWidth(0.5);
-      pdf.setDrawColor(0, 0, 0);
-      pdf.rect(borderMargin, borderMargin, pageWidth - (2 * borderMargin), pageHeight - (2 * borderMargin));
-    };
-    
-    // Function to add header box (only for first page)
-    const addHeaderBox = () => {
-      // Header box - 40px (≈14mm) from top of border, 90% width, centered
-      const headerBoxY = borderMargin + 14;
-      const headerBoxWidth = (pageWidth - (2 * borderMargin)) * 0.9;
-      const headerBoxX = (pageWidth - headerBoxWidth) / 2;
-      const headerBoxHeight = 20; // 20mm height for header box
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const borderMargin = 10; // 10mm border margin
+      const contentMargin = 20; // 20mm content margin from border
+      const contentWidth = pageWidth - (2 * (borderMargin + contentMargin));
       
-      // Draw header box border
-      pdf.rect(headerBoxX, headerBoxY, headerBoxWidth, headerBoxHeight);
+      // Function to add border to each page
+      const addPageBorder = () => {
+        // Add border around the page
+        pdf.setLineWidth(0.5);
+        pdf.setDrawColor(0, 0, 0);
+        pdf.rect(borderMargin, borderMargin, pageWidth - (2 * borderMargin), pageHeight - (2 * borderMargin));
+      };
       
-      // Left section (15% of header box width) for Exp.No and Date
-      const leftSectionWidth = headerBoxWidth * 0.15;
-      const rightSectionX = headerBoxX + leftSectionWidth;
-      const rightSectionWidth = headerBoxWidth * 0.85;
+      // Function to add footer with page number and roll number
+      const addFooter = (pageNum) => {
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(100, 100, 100);
+        
+        // Add roll number on left side of footer
+        pdf.text(`Roll No: ${formData.rollNo}`, borderMargin + 5, pageHeight - (borderMargin + 5));
+        
+        // Add simple page number on right side of footer
+        pdf.text(`${pageNum}`, pageWidth - (borderMargin + 10), pageHeight - (borderMargin + 5));
+      };
       
-      // Draw vertical line to separate left and right sections
-      pdf.line(rightSectionX, headerBoxY, rightSectionX, headerBoxY + headerBoxHeight);
+      // Function to add header box (only for first page)
+      const addHeaderBox = () => {
+        // Header box - 40px (≈14mm) from top of border, 90% width, centered
+        const headerBoxY = borderMargin + 14;
+        const headerBoxWidth = (pageWidth - (2 * borderMargin)) * 0.9;
+        const headerBoxX = (pageWidth - headerBoxWidth) / 2;
+        const headerBoxHeight = 20; // 20mm height for header box
+        
+        // Draw header box border
+        pdf.rect(headerBoxX, headerBoxY, headerBoxWidth, headerBoxHeight);
+        
+        // Left section (15% of header box width) for Exp.No and Date
+        const leftSectionWidth = headerBoxWidth * 0.15;
+        const rightSectionX = headerBoxX + leftSectionWidth;
+        const rightSectionWidth = headerBoxWidth * 0.85;
+        
+        // Draw vertical line to separate left and right sections
+        pdf.line(rightSectionX, headerBoxY, rightSectionX, headerBoxY + headerBoxHeight);
+        
+        // Draw horizontal line in left section to separate Exp.No and Date
+        const leftSectionMidY = headerBoxY + (headerBoxHeight / 2);
+        pdf.line(headerBoxX, leftSectionMidY, rightSectionX, leftSectionMidY);
+        
+        // Add text in left section
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        
+        // Exp.No text (top half of left section)
+        const expNoY = headerBoxY + 6;
+        pdf.text(`Exp.No: ${formData.expNo}`, headerBoxX + 2, expNoY);
+        
+        // Date text (bottom half of left section) - empty value
+        const dateY = leftSectionMidY + 6;
+        pdf.text("Date:", headerBoxX + 2, dateY);
+        
+        // Title text (right section) - bold and centered
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        const titleY = headerBoxY + (headerBoxHeight / 2) + 2;
+        const titleText = pdf.splitTextToSize(formData.expTitle, rightSectionWidth - 4);
+        
+        // Center the title text
+        const titleX = rightSectionX + (rightSectionWidth / 2);
+        pdf.text(titleText, titleX, titleY, { align: "center", maxWidth: rightSectionWidth - 4 });
+        
+        return headerBoxY + headerBoxHeight + 10; // Return Y position after header
+      };
       
-      // Draw horizontal line in left section to separate Exp.No and Date
-      const leftSectionMidY = headerBoxY + (headerBoxHeight / 2);
-      pdf.line(headerBoxX, leftSectionMidY, rightSectionX, leftSectionMidY);
+      // Add border and header to first page only
+      addPageBorder();
+      let yPos = addHeaderBox();
+      const leftMargin = borderMargin + contentMargin;
       
-      // Add text in left section
-      pdf.setFontSize(8);
+      // Add main content
+      pdf.setFontSize(12);
       pdf.setFont('helvetica', 'normal');
       
-      // Exp.No text (top half of left section)
-      const expNoY = headerBoxY + 6;
-      pdf.text(`Exp.No: ${formData.expNo}`, headerBoxX + 2, expNoY);
-      
-      // Date text (bottom half of left section) - empty value
-      const dateY = leftSectionMidY + 6;
-      pdf.text("Date:", headerBoxX + 2, dateY);
-      
-      // Title text (right section) - bold and centered
-      pdf.setFontSize(12);
+      // Aim
       pdf.setFont('helvetica', 'bold');
-      const titleY = headerBoxY + (headerBoxHeight / 2) + 2;
-      const titleText = pdf.splitTextToSize(formData.expTitle, rightSectionWidth - 4);
+      pdf.text("Aim:", leftMargin, yPos);
+      pdf.setFont('helvetica', 'normal');
+      yPos += 7;
       
-      // Center the title text
-      const titleX = rightSectionX + (rightSectionWidth / 2);
-      pdf.text(titleText, titleX, titleY, { align: "center", maxWidth: rightSectionWidth - 4 });
+      // Handle multiline text wrapping
+      const splitAim = pdf.splitTextToSize(formData.aim, contentWidth);
+      pdf.text(splitAim, leftMargin, yPos);
+      yPos += splitAim.length * 7 + 10;
       
-      return headerBoxY + headerBoxHeight + 10; // Return Y position after header
-    };
-    
-    // Add border and header to first page only
-    addPageBorder();
-    let yPos = addHeaderBox();
-    const leftMargin = borderMargin + contentMargin;
-    
-    // Add main content
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'normal');
-    
-    // Aim
-    pdf.setFont('helvetica', 'bold');
-    pdf.text("Aim:", leftMargin, yPos);
-    pdf.setFont('helvetica', 'normal');
-    yPos += 7;
-    
-    // Handle multiline text wrapping
-    const splitAim = pdf.splitTextToSize(formData.aim, contentWidth);
-    pdf.text(splitAim, leftMargin, yPos);
-    yPos += splitAim.length * 7 + 10;
-    
-    // Procedure
-    pdf.setFont('helvetica', 'bold');
-    pdf.text("Procedure:", leftMargin, yPos);
-    pdf.setFont('helvetica', 'normal');
-    yPos += 7;
-    
-    const splitProcedure = pdf.splitTextToSize(formData.procedure, contentWidth);
-    pdf.text(splitProcedure, leftMargin, yPos);
-    yPos += splitProcedure.length * 7 + 10;
-    
-    // Program Images
-    pdf.setFont('helvetica', 'bold');
-    pdf.text("Program:", leftMargin, yPos);
-    yPos += 7;
-    
-    // Add multiple program images with fixed width and dynamic height
-    for (let i = 0; i < programImages.length; i++) {
-      // Create temporary image to get dimensions
-      const img = new Image();
-      img.src = programImages[i];
+      // Procedure
+      pdf.setFont('helvetica', 'bold');
+      pdf.text("Procedure:", leftMargin, yPos);
+      pdf.setFont('helvetica', 'normal');
+      yPos += 7;
       
-      // Calculate height while maintaining aspect ratio
-      const imgWidth = contentWidth;
-      const imgHeight = (img.height * imgWidth) / img.width;
+      const splitProcedure = pdf.splitTextToSize(formData.procedure, contentWidth);
+      pdf.text(splitProcedure, leftMargin, yPos);
+      yPos += splitProcedure.length * 7 + 10;
       
-      // Check if we need a new page
-      if (yPos + imgHeight > pageHeight - borderMargin - contentMargin) {
+      // Program Images
+      pdf.setFont('helvetica', 'bold');
+      pdf.text("Program:", leftMargin, yPos);
+      yPos += 7;
+      
+      // Track page count
+      let currentPage = 1;
+      
+      // Add multiple program images with fixed width and dynamic height
+      for (let i = 0; i < programImages.length; i++) {
+        // Create temporary image to get dimensions
+        const img = new Image();
+        img.src = programImages[i];
+        
+        // Calculate height while maintaining aspect ratio
+        const imgWidth = contentWidth;
+        const imgHeight = (img.height * imgWidth) / img.width;
+        
+        // Check if we need a new page
+        if (yPos + imgHeight > pageHeight - borderMargin - contentMargin) {
+          addFooter(currentPage); // Add footer to current page before adding a new one
+          pdf.addPage();
+          currentPage++;
+          addPageBorder(); // Add only border to new page
+          yPos = borderMargin + contentMargin; // Start content after border margin
+        }
+        
+        pdf.addImage(programImages[i], 'JPEG', leftMargin, yPos, imgWidth, imgHeight);
+        yPos += imgHeight + 5; // Removed image count text, just add a small space
+      }
+      
+      // Output Images
+      pdf.setFont('helvetica', 'bold');
+      
+      // Check if we need a new page for output
+      if (yPos > pageHeight - borderMargin - contentMargin - 60) {
+        addFooter(currentPage); // Add footer to current page
         pdf.addPage();
+        currentPage++;
         addPageBorder(); // Add only border to new page
         yPos = borderMargin + contentMargin; // Start content after border margin
       }
       
-      pdf.addImage(programImages[i], 'JPEG', leftMargin, yPos, imgWidth, imgHeight);
-      yPos += imgHeight + 5;
+      pdf.text("Output:", leftMargin, yPos);
+      yPos += 7;
       
-      // Add image number if there are multiple images
-      if (programImages.length > 1) {
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'italic');
-        pdf.text(`Image ${i + 1}/${programImages.length}`, pageWidth/2, yPos, { align: "center" });
-        yPos += 10;
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'normal');
+      // Add multiple output images with fixed width and dynamic height
+      for (let i = 0; i < outputImages.length; i++) {
+        // Create temporary image to get dimensions
+        const img = new Image();
+        img.src = outputImages[i];
+        
+        // Calculate height while maintaining aspect ratio
+        const imgWidth = contentWidth;
+        const imgHeight = (img.height * imgWidth) / img.width;
+        
+        // Check if we need a new page
+        if (yPos + imgHeight > pageHeight - borderMargin - contentMargin) {
+          addFooter(currentPage); // Add footer to current page
+          pdf.addPage();
+          currentPage++;
+          addPageBorder(); // Add only border to new page
+          yPos = borderMargin + contentMargin; // Start content after border margin
+        }
+        
+        pdf.addImage(outputImages[i], 'JPEG', leftMargin, yPos, imgWidth, imgHeight);
+        yPos += imgHeight + 5; // Removed image count text, just add a small space
       }
-    }
-    
-    // Output Images
-    pdf.setFont('helvetica', 'bold');
-    
-    // Check if we need a new page for output
-    if (yPos > pageHeight - borderMargin - contentMargin - 60) {
+      
+      // Calculate space needed for result text
+      const splitResult = pdf.splitTextToSize(formData.result, contentWidth);
+      const resultHeight = splitResult.length * 7 + 10;
+      
+      // Check if we need a new page or if we can fit result at bottom of current page
+      const remainingSpace = pageHeight - (borderMargin + contentMargin) - yPos;
+      
+      // If not enough space on current page OR we just want result to be at bottom of page
+      // We'll start a new page and position the result at the bottom
+      addFooter(currentPage); // Add footer to current page
       pdf.addPage();
-      addPageBorder(); // Add only border to new page
-      yPos = borderMargin + contentMargin; // Start content after border margin
-    }
-    
-    pdf.text("Output:", leftMargin, yPos);
-    yPos += 7;
-    
-    // Add multiple output images with fixed width and dynamic height
-    for (let i = 0; i < outputImages.length; i++) {
-      // Create temporary image to get dimensions
-      const img = new Image();
-      img.src = outputImages[i];
+      currentPage++;
+      addPageBorder(); // Add border to new page
       
-      // Calculate height while maintaining aspect ratio
-      const imgWidth = contentWidth;
-      const imgHeight = (img.height * imgWidth) / img.width;
+      // Position result at the bottom of the page
+      let resultYPos = pageHeight - borderMargin - contentMargin - resultHeight;
       
-      // Check if we need a new page
-      if (yPos + imgHeight > pageHeight - borderMargin - contentMargin) {
-        pdf.addPage();
-        addPageBorder(); // Add only border to new page
-        yPos = borderMargin + contentMargin; // Start content after border margin
+      // If result is too large to fit at bottom, position it at top with reasonable margin
+      if (resultHeight > pageHeight * 0.6) {
+        resultYPos = borderMargin + contentMargin;
       }
       
-      pdf.addImage(outputImages[i], 'JPEG', leftMargin, yPos, imgWidth, imgHeight);
-      yPos += imgHeight + 5;
+      // Result title
+      pdf.setFont('helvetica', 'bold');
+      pdf.text("Result:", leftMargin, resultYPos);
+      pdf.setFont('helvetica', 'normal');
+      resultYPos += 7;
       
-      // Add image number if there are multiple images
-      if (outputImages.length > 1) {
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'italic');
-        pdf.text(`Image ${i + 1}/${outputImages.length}`, pageWidth/2, yPos, { align: "center" });
-        yPos += 10;
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'normal');
-      }
+      // Result content
+      pdf.text(splitResult, leftMargin, resultYPos);
+      
+      // Add footer to result page
+      addFooter(currentPage);
+      
+      // Save PDF
+      pdf.save(`Experiment_${formData.rollNo}_${formData.expNo}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Error generating PDF. Please try again.");
+    } finally {
+      setIsGeneratingPdf(false);
+      setIsSubmitting(false);
     }
-    
-    // Always put Result on a new page at the end
-    pdf.addPage();
-    addPageBorder(); // Add only border to new page
-    yPos = borderMargin + contentMargin; // Start content after border margin
-    
-    // Result
-    pdf.setFont('helvetica', 'bold');
-    pdf.text("Result:", leftMargin, yPos);
-    pdf.setFont('helvetica', 'normal');
-    yPos += 7;
-    
-    const splitResult = pdf.splitTextToSize(formData.result, contentWidth);
-    pdf.text(splitResult, leftMargin, yPos);
-    
-    // Save PDF
-    pdf.save(`Experiment_${formData.expNo}.pdf`);
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-    alert("Error generating PDF. Please try again.");
-  } finally {
-    setIsGeneratingPdf(false);
-    setIsSubmitting(false);
-  }
-};
+  };
 
   // Reset form
   const resetForm = () => {
     setFormData({
+      rollNo: '',
       expNo: '',
       expTitle: '',
       aim: '',
@@ -354,6 +377,27 @@ const generatePDF = async () => {
           </div>
           
           <form ref={formRef} onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
+            {/* Roll Number - New field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Roll Number
+              </label>
+              <input
+                type="text"
+                name="rollNo"
+                value={formData.rollNo}
+                onChange={handleInputChange}
+                onCopy={preventCopyPaste}
+                onPaste={preventCopyPaste}
+                className={`w-full px-4 py-2 border ${errors.rollNo ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                placeholder="Enter your roll number"
+                required
+              />
+              {errors.rollNo && (
+                <p className="mt-1 text-sm text-red-600">{errors.rollNo}</p>
+              )}
+            </div>
+            
             {/* Experiment Number */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
