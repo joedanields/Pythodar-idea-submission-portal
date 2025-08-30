@@ -136,7 +136,7 @@ const Template = () => {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const borderMargin = 10; // 10mm border margin
+      const borderMargin = 5; // 5mm  border margin
       const contentMargin = 20; // 20mm content margin from border
       const contentWidth = pageWidth - (2 * (borderMargin + contentMargin));
       
@@ -157,8 +157,9 @@ const Template = () => {
         // Add roll number on left side of footer
         pdf.text(`Roll No: ${formData.rollNo}`, borderMargin + 5, pageHeight - (borderMargin + 5));
         
-        // Add simple page number on right side of footer
-        pdf.text(`${pageNum}`, pageWidth - (borderMargin + 10), pageHeight - (borderMargin + 5));
+        // Add page number on right side of footer with proper alignment
+        const pageText = `Page ${pageNum}`;
+        pdf.text(pageText, pageWidth - (borderMargin + 15), pageHeight - (borderMargin + 5));
       };
       
       // Function to add header box (only for first page)
@@ -220,6 +221,7 @@ const Template = () => {
       
       // Aim
       pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0); // Set text color to black (RGB: 0,0,0)
       pdf.text("Aim:", leftMargin, yPos);
       pdf.setFont('helvetica', 'normal');
       yPos += 7;
@@ -231,6 +233,7 @@ const Template = () => {
       
       // Procedure
       pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0); // Set text color to black (RGB: 0,0,0)
       pdf.text("Procedure:", leftMargin, yPos);
       pdf.setFont('helvetica', 'normal');
       yPos += 7;
@@ -241,24 +244,35 @@ const Template = () => {
       
       // Program Images
       pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0); // Set text color to black (RGB: 0,0,0)
       pdf.text("Program:", leftMargin, yPos);
       yPos += 7;
       
       // Track page count
       let currentPage = 1;
       
-      // Add multiple program images with fixed width and dynamic height
+      // Add multiple program images with their actual dimensions
       for (let i = 0; i < programImages.length; i++) {
-        // Create temporary image to get dimensions
+        // Create temporary image to get original dimensions
         const img = new Image();
         img.src = programImages[i];
         
-        // Calculate height while maintaining aspect ratio
-        const imgWidth = contentWidth;
-        const imgHeight = (img.height * imgWidth) / img.width;
+        // Use original image dimensions (converted from pixels to mm)
+        // Standard conversion: 1 pixel ≈ 0.264583 mm
+        const pxToMm = 0.264583;
+        const imgWidth = img.width * pxToMm;
+        const imgHeight = img.height * pxToMm;
+        
+        // If image is wider than content width, scale it down to fit the page
+        let finalImgWidth = imgWidth;
+        let finalImgHeight = imgHeight;
+        if (imgWidth > contentWidth) {
+          finalImgWidth = contentWidth;
+          finalImgHeight = (imgHeight * contentWidth) / imgWidth;
+        }
         
         // Check if we need a new page
-        if (yPos + imgHeight > pageHeight - borderMargin - contentMargin) {
+        if (yPos + finalImgHeight > pageHeight - borderMargin - contentMargin) {
           addFooter(currentPage); // Add footer to current page before adding a new one
           pdf.addPage();
           currentPage++;
@@ -266,12 +280,17 @@ const Template = () => {
           yPos = borderMargin + contentMargin; // Start content after border margin
         }
         
-        pdf.addImage(programImages[i], 'JPEG', leftMargin, yPos, imgWidth, imgHeight);
-        yPos += imgHeight + 5; // Removed image count text, just add a small space
+        // Calculate horizontal centering if image is smaller than content width
+        const xOffset = finalImgWidth < contentWidth ? (contentWidth - finalImgWidth) / 2 : 0;
+        
+        pdf.addImage(programImages[i], 'JPEG', leftMargin + xOffset, yPos, finalImgWidth, finalImgHeight);
+        yPos += finalImgHeight + 5; // Add a small space after image
       }
       
       // Output Images
+      pdf.setFontSize(12); // Match Aim section font size
       pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0); // Set text color to black (RGB: 0,0,0)
       
       // Check if we need a new page for output
       if (yPos > pageHeight - borderMargin - contentMargin - 60) {
@@ -284,19 +303,30 @@ const Template = () => {
       
       pdf.text("Output:", leftMargin, yPos);
       yPos += 7;
+      pdf.setTextColor(0, 0, 0); // Keep text color black for content
       
-      // Add multiple output images with fixed width and dynamic height
+      // Add multiple output images with their actual dimensions
       for (let i = 0; i < outputImages.length; i++) {
-        // Create temporary image to get dimensions
+        // Create temporary image to get original dimensions
         const img = new Image();
         img.src = outputImages[i];
         
-        // Calculate height while maintaining aspect ratio
-        const imgWidth = contentWidth;
-        const imgHeight = (img.height * imgWidth) / img.width;
+        // Use original image dimensions (converted from pixels to mm)
+        // Standard conversion: 1 pixel ≈ 0.264583 mm
+        const pxToMm = 0.264583;
+        const imgWidth = img.width * pxToMm;
+        const imgHeight = img.height * pxToMm;
+        
+        // If image is wider than content width, scale it down to fit the page
+        let finalImgWidth = imgWidth;
+        let finalImgHeight = imgHeight;
+        if (imgWidth > contentWidth) {
+          finalImgWidth = contentWidth;
+          finalImgHeight = (imgHeight * contentWidth) / imgWidth;
+        }
         
         // Check if we need a new page
-        if (yPos + imgHeight > pageHeight - borderMargin - contentMargin) {
+        if (yPos + finalImgHeight > pageHeight - borderMargin - contentMargin) {
           addFooter(currentPage); // Add footer to current page
           pdf.addPage();
           currentPage++;
@@ -304,8 +334,11 @@ const Template = () => {
           yPos = borderMargin + contentMargin; // Start content after border margin
         }
         
-        pdf.addImage(outputImages[i], 'JPEG', leftMargin, yPos, imgWidth, imgHeight);
-        yPos += imgHeight + 5; // Removed image count text, just add a small space
+        // Calculate horizontal centering if image is smaller than content width
+        const xOffset = finalImgWidth < contentWidth ? (contentWidth - finalImgWidth) / 2 : 0;
+        
+        pdf.addImage(outputImages[i], 'JPEG', leftMargin + xOffset, yPos, finalImgWidth, finalImgHeight);
+        yPos += finalImgHeight + 5; // Add a small space after image
       }
       
       // Calculate space needed for result text
@@ -332,7 +365,9 @@ const Template = () => {
       }
       
       // Result title
+      pdf.setFontSize(12); // Setting the same font size as Aim section
       pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0); // Set text color to black (RGB: 0,0,0)
       pdf.text("Result:", leftMargin, resultYPos);
       pdf.setFont('helvetica', 'normal');
       resultYPos += 7;
