@@ -127,152 +127,209 @@ const Template = () => {
   };
 
   // Generate PDF from form data
-  const generatePDF = async () => {
-    setIsGeneratingPdf(true);
+// Generate PDF from form data with border and header box
+// Generate PDF from form data with border and header box
+const generatePDF = async () => {
+  setIsGeneratingPdf(true);
+  
+  try {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const borderMargin = 10; // 10mm border margin
+    const contentMargin = 20; // 20mm content margin from border
+    const contentWidth = pageWidth - (2 * (borderMargin + contentMargin));
     
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const contentWidth = pageWidth - 40; // Fixed width (20mm margins on each side)
-      const margin = 20;
+    // Function to add border to each page
+    const addPageBorder = () => {
+      // Add border around the page
+      pdf.setLineWidth(0.5);
+      pdf.setDrawColor(0, 0, 0);
+      pdf.rect(borderMargin, borderMargin, pageWidth - (2 * borderMargin), pageHeight - (2 * borderMargin));
+    };
+    
+    // Function to add header box (only for first page)
+    const addHeaderBox = () => {
+      // Header box - 40px (≈14mm) from top of border, 90% width, centered
+      const headerBoxY = borderMargin + 14;
+      const headerBoxWidth = (pageWidth - (2 * borderMargin)) * 0.9;
+      const headerBoxX = (pageWidth - headerBoxWidth) / 2;
+      const headerBoxHeight = 20; // 20mm height for header box
       
-      // Add title
-      pdf.setFontSize(16);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text("LAB RECORD", pageWidth/2, margin, { align: "center" });
+      // Draw header box border
+      pdf.rect(headerBoxX, headerBoxY, headerBoxWidth, headerBoxHeight);
       
-      // Add experiment details
+      // Left section (15% of header box width) for Exp.No and Date
+      const leftSectionWidth = headerBoxWidth * 0.15;
+      const rightSectionX = headerBoxX + leftSectionWidth;
+      const rightSectionWidth = headerBoxWidth * 0.85;
+      
+      // Draw vertical line to separate left and right sections
+      pdf.line(rightSectionX, headerBoxY, rightSectionX, headerBoxY + headerBoxHeight);
+      
+      // Draw horizontal line in left section to separate Exp.No and Date
+      const leftSectionMidY = headerBoxY + (headerBoxHeight / 2);
+      pdf.line(headerBoxX, leftSectionMidY, rightSectionX, leftSectionMidY);
+      
+      // Add text in left section
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'normal');
+      
+      // Exp.No text (top half of left section)
+      const expNoY = headerBoxY + 6;
+      pdf.text(`Exp.No: ${formData.expNo}`, headerBoxX + 2, expNoY);
+      
+      // Date text (bottom half of left section) - empty value
+      const dateY = leftSectionMidY + 6;
+      pdf.text("Date:", headerBoxX + 2, dateY);
+      
+      // Title text (right section) - bold and centered
       pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'normal');
-      let yPos = margin + 10;
-      
-      // Experiment Number and Title
       pdf.setFont('helvetica', 'bold');
-      pdf.text(`Experiment No: ${formData.expNo}`, margin, yPos);
-      yPos += 10;
-      pdf.text(`Experiment Title: ${formData.expTitle}`, margin, yPos);
-      yPos += 15;
+      const titleY = headerBoxY + (headerBoxHeight / 2) + 2;
+      const titleText = pdf.splitTextToSize(formData.expTitle, rightSectionWidth - 4);
       
-      // Aim
-      pdf.text("Aim:", margin, yPos);
-      pdf.setFont('helvetica', 'normal');
-      yPos += 7;
+      // Center the title text
+      const titleX = rightSectionX + (rightSectionWidth / 2);
+      pdf.text(titleText, titleX, titleY, { align: "center", maxWidth: rightSectionWidth - 4 });
       
-      // Handle multiline text wrapping
-      const splitAim = pdf.splitTextToSize(formData.aim, contentWidth);
-      pdf.text(splitAim, margin, yPos);
-      yPos += splitAim.length * 7 + 10;
+      return headerBoxY + headerBoxHeight + 10; // Return Y position after header
+    };
+    
+    // Add border and header to first page only
+    addPageBorder();
+    let yPos = addHeaderBox();
+    const leftMargin = borderMargin + contentMargin;
+    
+    // Add main content
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'normal');
+    
+    // Aim
+    pdf.setFont('helvetica', 'bold');
+    pdf.text("Aim:", leftMargin, yPos);
+    pdf.setFont('helvetica', 'normal');
+    yPos += 7;
+    
+    // Handle multiline text wrapping
+    const splitAim = pdf.splitTextToSize(formData.aim, contentWidth);
+    pdf.text(splitAim, leftMargin, yPos);
+    yPos += splitAim.length * 7 + 10;
+    
+    // Procedure
+    pdf.setFont('helvetica', 'bold');
+    pdf.text("Procedure:", leftMargin, yPos);
+    pdf.setFont('helvetica', 'normal');
+    yPos += 7;
+    
+    const splitProcedure = pdf.splitTextToSize(formData.procedure, contentWidth);
+    pdf.text(splitProcedure, leftMargin, yPos);
+    yPos += splitProcedure.length * 7 + 10;
+    
+    // Program Images
+    pdf.setFont('helvetica', 'bold');
+    pdf.text("Program:", leftMargin, yPos);
+    yPos += 7;
+    
+    // Add multiple program images with fixed width and dynamic height
+    for (let i = 0; i < programImages.length; i++) {
+      // Create temporary image to get dimensions
+      const img = new Image();
+      img.src = programImages[i];
       
-      // Procedure
-      pdf.setFont('helvetica', 'bold');
-      pdf.text("Procedure:", margin, yPos);
-      pdf.setFont('helvetica', 'normal');
-      yPos += 7;
+      // Calculate height while maintaining aspect ratio
+      const imgWidth = contentWidth;
+      const imgHeight = (img.height * imgWidth) / img.width;
       
-      const splitProcedure = pdf.splitTextToSize(formData.procedure, contentWidth);
-      pdf.text(splitProcedure, margin, yPos);
-      yPos += splitProcedure.length * 7 + 10;
-      
-      // Program Images
-      pdf.setFont('helvetica', 'bold');
-      pdf.text("Program:", margin, yPos);
-      yPos += 7;
-      
-      // Add multiple program images with fixed width and dynamic height
-      for (let i = 0; i < programImages.length; i++) {
-        // Create temporary image to get dimensions
-        const img = new Image();
-        img.src = programImages[i];
-        
-        // Calculate height while maintaining aspect ratio
-        const imgWidth = contentWidth;
-        const imgHeight = (img.height * imgWidth) / img.width;
-        
-        // Check if we need a new page
-        if (yPos + imgHeight > pdf.internal.pageSize.getHeight() - margin) {
-          pdf.addPage();
-          yPos = margin;
-        }
-        
-        pdf.addImage(programImages[i], 'JPEG', margin, yPos, imgWidth, imgHeight);
-        yPos += imgHeight + 5;
-        
-        // Add image number if there are multiple images
-        if (programImages.length > 1) {
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'italic');
-          pdf.text(`Image ${i + 1}/${programImages.length}`, pageWidth/2, yPos, { align: "center" });
-          yPos += 10;
-          pdf.setFontSize(12);
-          pdf.setFont('helvetica', 'normal');
-        }
-      }
-      
-      // Output Images
-      pdf.setFont('helvetica', 'bold');
-      
-      // Check if we need a new page for output
-      if (yPos > pdf.internal.pageSize.getHeight() - 60) {
+      // Check if we need a new page
+      if (yPos + imgHeight > pageHeight - borderMargin - contentMargin) {
         pdf.addPage();
-        yPos = margin;
+        addPageBorder(); // Add only border to new page
+        yPos = borderMargin + contentMargin; // Start content after border margin
       }
       
-      pdf.text("Output:", margin, yPos);
-      yPos += 7;
+      pdf.addImage(programImages[i], 'JPEG', leftMargin, yPos, imgWidth, imgHeight);
+      yPos += imgHeight + 5;
       
-      // Add multiple output images with fixed width and dynamic height
-      for (let i = 0; i < outputImages.length; i++) {
-        // Create temporary image to get dimensions
-        const img = new Image();
-        img.src = outputImages[i];
-        
-        // Calculate height while maintaining aspect ratio
-        const imgWidth = contentWidth;
-        const imgHeight = (img.height * imgWidth) / img.width;
-        
-        // Check if we need a new page
-        if (yPos + imgHeight > pdf.internal.pageSize.getHeight() - margin) {
-          pdf.addPage();
-          yPos = margin;
-        }
-        
-        pdf.addImage(outputImages[i], 'JPEG', margin, yPos, imgWidth, imgHeight);
-        yPos += imgHeight + 5;
-        
-        // Add image number if there are multiple images
-        if (outputImages.length > 1) {
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'italic');
-          pdf.text(`Image ${i + 1}/${outputImages.length}`, pageWidth/2, yPos, { align: "center" });
-          yPos += 10;
-          pdf.setFontSize(12);
-          pdf.setFont('helvetica', 'normal');
-        }
+      // Add image number if there are multiple images
+      if (programImages.length > 1) {
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'italic');
+        pdf.text(`Image ${i + 1}/${programImages.length}`, pageWidth/2, yPos, { align: "center" });
+        yPos += 10;
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
       }
-      
-      // Always put Result on a new page at the end
-      pdf.addPage();
-      yPos = margin;
-      
-      // Result
-      pdf.setFont('helvetica', 'bold');
-      pdf.text("Result:", margin, yPos);
-      pdf.setFont('helvetica', 'normal');
-      yPos += 7;
-      
-      const splitResult = pdf.splitTextToSize(formData.result, contentWidth);
-      pdf.text(splitResult, margin, yPos);
-      
-      // Save PDF
-      pdf.save(`Experiment_${formData.expNo}.pdf`);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("Error generating PDF. Please try again.");
-    } finally {
-      setIsGeneratingPdf(false);
-      setIsSubmitting(false);
     }
-  };
+    
+    // Output Images
+    pdf.setFont('helvetica', 'bold');
+    
+    // Check if we need a new page for output
+    if (yPos > pageHeight - borderMargin - contentMargin - 60) {
+      pdf.addPage();
+      addPageBorder(); // Add only border to new page
+      yPos = borderMargin + contentMargin; // Start content after border margin
+    }
+    
+    pdf.text("Output:", leftMargin, yPos);
+    yPos += 7;
+    
+    // Add multiple output images with fixed width and dynamic height
+    for (let i = 0; i < outputImages.length; i++) {
+      // Create temporary image to get dimensions
+      const img = new Image();
+      img.src = outputImages[i];
+      
+      // Calculate height while maintaining aspect ratio
+      const imgWidth = contentWidth;
+      const imgHeight = (img.height * imgWidth) / img.width;
+      
+      // Check if we need a new page
+      if (yPos + imgHeight > pageHeight - borderMargin - contentMargin) {
+        pdf.addPage();
+        addPageBorder(); // Add only border to new page
+        yPos = borderMargin + contentMargin; // Start content after border margin
+      }
+      
+      pdf.addImage(outputImages[i], 'JPEG', leftMargin, yPos, imgWidth, imgHeight);
+      yPos += imgHeight + 5;
+      
+      // Add image number if there are multiple images
+      if (outputImages.length > 1) {
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'italic');
+        pdf.text(`Image ${i + 1}/${outputImages.length}`, pageWidth/2, yPos, { align: "center" });
+        yPos += 10;
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+      }
+    }
+    
+    // Always put Result on a new page at the end
+    pdf.addPage();
+    addPageBorder(); // Add only border to new page
+    yPos = borderMargin + contentMargin; // Start content after border margin
+    
+    // Result
+    pdf.setFont('helvetica', 'bold');
+    pdf.text("Result:", leftMargin, yPos);
+    pdf.setFont('helvetica', 'normal');
+    yPos += 7;
+    
+    const splitResult = pdf.splitTextToSize(formData.result, contentWidth);
+    pdf.text(splitResult, leftMargin, yPos);
+    
+    // Save PDF
+    pdf.save(`Experiment_${formData.expNo}.pdf`);
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    alert("Error generating PDF. Please try again.");
+  } finally {
+    setIsGeneratingPdf(false);
+    setIsSubmitting(false);
+  }
+};
 
   // Reset form
   const resetForm = () => {
