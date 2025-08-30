@@ -310,6 +310,7 @@ const Template = () => {
       
       // Calculate space needed for result text
       const splitResult = pdf.splitTextToSize(formData.result, contentWidth);
+      
       const resultHeight = splitResult.length * 7 + 10;
       
       // Check if we need a new page or if we can fit result at bottom of current page
