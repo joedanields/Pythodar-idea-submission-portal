@@ -107,8 +107,8 @@ const Template = () => {
     if (!formData.aim) newErrors.aim = "Aim is required";
     if (!formData.procedure) newErrors.procedure = "Procedure is required";
     if (!formData.result) newErrors.result = "Result is required";
-    if (programImages.length === 0) newErrors.programImages = "At least one program screenshot is required";
-    if (outputImages.length === 0) newErrors.outputImages = "At least one output screenshot is required";
+    if (programImages.length === 0) newErrors.programImages = "At least one program image is required";
+    if (outputImages.length === 0) newErrors.outputImages = "At least one output image is required";
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -133,8 +133,8 @@ const Template = () => {
     try {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
+      const contentWidth = pageWidth - 40; // Fixed width (20mm margins on each side)
       const margin = 20;
-      const contentWidth = pageWidth - (margin * 2);
       
       // Add title
       pdf.setFontSize(16);
@@ -178,22 +178,30 @@ const Template = () => {
       pdf.text("Program:", margin, yPos);
       yPos += 7;
       
-      // Add multiple program images
+      // Add multiple program images with fixed width and dynamic height
       for (let i = 0; i < programImages.length; i++) {
+        // Create temporary image to get dimensions
+        const img = new Image();
+        img.src = programImages[i];
+        
+        // Calculate height while maintaining aspect ratio
+        const imgWidth = contentWidth;
+        const imgHeight = (img.height * imgWidth) / img.width;
+        
         // Check if we need a new page
-        if (yPos > 230) {
+        if (yPos + imgHeight > pdf.internal.pageSize.getHeight() - margin) {
           pdf.addPage();
           yPos = margin;
         }
         
-        pdf.addImage(programImages[i], 'JPEG', margin, yPos, contentWidth, 60);
-        yPos += 65;
+        pdf.addImage(programImages[i], 'JPEG', margin, yPos, imgWidth, imgHeight);
+        yPos += imgHeight + 5;
         
         // Add image number if there are multiple images
         if (programImages.length > 1) {
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'italic');
-          pdf.text(`Program Screenshot ${i + 1}/${programImages.length}`, pageWidth/2, yPos, { align: "center" });
+          pdf.text(`Image ${i + 1}/${programImages.length}`, pageWidth/2, yPos, { align: "center" });
           yPos += 10;
           pdf.setFontSize(12);
           pdf.setFont('helvetica', 'normal');
@@ -204,7 +212,7 @@ const Template = () => {
       pdf.setFont('helvetica', 'bold');
       
       // Check if we need a new page for output
-      if (yPos > 230) {
+      if (yPos > pdf.internal.pageSize.getHeight() - 60) {
         pdf.addPage();
         yPos = margin;
       }
@@ -212,33 +220,39 @@ const Template = () => {
       pdf.text("Output:", margin, yPos);
       yPos += 7;
       
-      // Add multiple output images
+      // Add multiple output images with fixed width and dynamic height
       for (let i = 0; i < outputImages.length; i++) {
+        // Create temporary image to get dimensions
+        const img = new Image();
+        img.src = outputImages[i];
+        
+        // Calculate height while maintaining aspect ratio
+        const imgWidth = contentWidth;
+        const imgHeight = (img.height * imgWidth) / img.width;
+        
         // Check if we need a new page
-        if (yPos > 230) {
+        if (yPos + imgHeight > pdf.internal.pageSize.getHeight() - margin) {
           pdf.addPage();
           yPos = margin;
         }
         
-        pdf.addImage(outputImages[i], 'JPEG', margin, yPos, contentWidth, 60);
-        yPos += 65;
+        pdf.addImage(outputImages[i], 'JPEG', margin, yPos, imgWidth, imgHeight);
+        yPos += imgHeight + 5;
         
         // Add image number if there are multiple images
         if (outputImages.length > 1) {
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'italic');
-          pdf.text(`Output Screenshot ${i + 1}/${outputImages.length}`, pageWidth/2, yPos, { align: "center" });
+          pdf.text(`Image ${i + 1}/${outputImages.length}`, pageWidth/2, yPos, { align: "center" });
           yPos += 10;
           pdf.setFontSize(12);
           pdf.setFont('helvetica', 'normal');
         }
       }
       
-      // Check if we need a new page for result
-      if (yPos > 230) {
-        pdf.addPage();
-        yPos = margin;
-      }
+      // Always put Result on a new page at the end
+      pdf.addPage();
+      yPos = margin;
       
       // Result
       pdf.setFont('helvetica', 'bold');
@@ -370,7 +384,7 @@ const Template = () => {
             {/* Program (Multiple Image Upload) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Program Screenshots
+                Program
               </label>
               <div className="flex items-center justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                 <div className="space-y-1 text-center">
@@ -419,7 +433,7 @@ const Template = () => {
                     <div key={index} className="relative group">
                       <img 
                         src={img} 
-                        alt={`Program screenshot ${index + 1}`} 
+                        alt={`Program image ${index + 1}`} 
                         className="h-32 w-full object-cover rounded-md"
                       />
                       <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center">
@@ -449,7 +463,7 @@ const Template = () => {
             {/* Output (Multiple Image Upload) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Output Screenshots
+                Output
               </label>
               <div className="flex items-center justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                 <div className="space-y-1 text-center">
@@ -498,7 +512,7 @@ const Template = () => {
                     <div key={index} className="relative group">
                       <img 
                         src={img} 
-                        alt={`Output screenshot ${index + 1}`} 
+                        alt={`Output image ${index + 1}`} 
                         className="h-32 w-full object-cover rounded-md"
                       />
                       <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center">
