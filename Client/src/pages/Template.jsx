@@ -25,91 +25,6 @@ const Template = () => {
   // References to form elements
   const formRef = useRef(null);
 
-  // Enhanced prevention for copy-paste, mobile clipboard, and extensions
-  const preventCopyPaste = (e) => {
-    e.preventDefault();
-    alert("Copy-paste is not allowed. Please type manually.");
-    return false;
-  };
-
-  // Store the last known value for each field to detect unauthorized changes
-  const [lastKnownValues, setLastKnownValues] = useState({});
-  const [keystrokeTimestamps, setKeystrokeTimestamps] = useState({});
-
-  // Enhanced input validation to prevent paste from clipboard/extensions
-  const handleSecureInputChange = (e) => {
-    const { name, value } = e.target;
-    const previousValue = formData[name] || '';
-    const currentTime = Date.now();
-    
-    // Check if this is a rapid large text insertion (likely paste)
-    if (value.length - previousValue.length > 5) {
-      const lastKeystroke = keystrokeTimestamps[name] || 0;
-      const timeDiff = currentTime - lastKeystroke;
-      
-      // If large text change happened too quickly (less than 100ms per character)
-      if (timeDiff < (value.length - previousValue.length) * 100) {
-        alert("Rapid text insertion detected. Please type manually.");
-        return;
-      }
-    }
-    
-    // Update keystroke timestamp
-    setKeystrokeTimestamps(prev => ({
-      ...prev,
-      [name]: currentTime
-    }));
-    
-    // Regular input change handler
-    handleInputChange(e);
-  };
-
-  // Monitor input for unauthorized changes (catches extension-based inputs)
-  const monitorInput = (e) => {
-    const { name, value } = e.target;
-    const lastValue = lastKnownValues[name] || '';
-    
-    // If value changed without a keystroke (extension input)
-    if (value !== lastValue && !e.isTrusted) {
-      alert("Unauthorized input detected. Please type manually.");
-      e.target.value = lastValue;
-      setFormData(prev => ({ ...prev, [name]: lastValue }));
-      return;
-    }
-    
-    // Update last known value
-    setLastKnownValues(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Additional mobile-specific paste prevention
-  const handleMobileInput = (e) => {
-    // Prevent context menu on mobile (long press)
-    e.preventDefault();
-  };
-
-  // Comprehensive input event handler
-  const handleInputEvent = (e) => {
-    // Detect if input was inserted programmatically
-    if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') {
-      e.preventDefault();
-      alert("Paste operation blocked. Please type manually.");
-      return;
-    }
-    
-    // Check for composition events (some mobile keyboards/extensions)
-    if (e.inputType && e.inputType.includes('insert') && !e.inputType.includes('Char')) {
-      const insertedText = e.data || '';
-      if (insertedText.length > 3) {
-        alert("Large text insertion blocked. Please type manually.");
-        e.preventDefault();
-        return;
-      }
-    }
-  };
-
   // Handle text input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -117,12 +32,13 @@ const Template = () => {
       ...formData,
       [name]: value
     });
-    
-    // Update last known values for monitoring
-    setLastKnownValues(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  };
+
+  // Prevent copy-paste for text inputs
+  const preventCopyPaste = (e) => {
+    e.preventDefault();
+    alert("Copy-paste is not allowed. Please type manually.");
+    return false;
   };
 
   // Handle multiple image uploads
@@ -241,9 +157,8 @@ const Template = () => {
         // Add roll number on left side of footer
         pdf.text(`Roll No: ${formData.rollNo}`, borderMargin + 5, pageHeight - (borderMargin + 5));
         
-        // Add page number on right side of footer with proper alignment
-        const pageText = `Page ${pageNum}`;
-        pdf.text(pageText, pageWidth - (borderMargin + 15), pageHeight - (borderMargin + 5));
+        // Add "Page No:" on right side of footer without showing the actual page number
+        pdf.text("Page No:", pageWidth - (borderMargin + 20), pageHeight - (borderMargin + 5));
       };
       
       // Function to add header box (only for first page)
@@ -305,19 +220,20 @@ const Template = () => {
       
       // Aim
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); // Set text color to black (RGB: 0,0,0)
+      pdf.setTextColor(0, 0, 0); // Set text color to black
       pdf.text("Aim:", leftMargin, yPos);
       pdf.setFont('helvetica', 'normal');
       yPos += 7;
       
       // Handle multiline text wrapping
       const splitAim = pdf.splitTextToSize(formData.aim, contentWidth);
+      pdf.setTextColor(0, 0, 0); // Ensure text color is black for content
       pdf.text(splitAim, leftMargin, yPos);
       yPos += splitAim.length * 7 + 10;
       
       // Procedure
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); // Set text color to black (RGB: 0,0,0)
+      pdf.setTextColor(0, 0, 0); // Set text color to black
       pdf.text("Procedure:", leftMargin, yPos);
       pdf.setFont('helvetica', 'normal');
       yPos += 7;
@@ -328,8 +244,9 @@ const Template = () => {
       
       // Program Images
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); // Set text color to black (RGB: 0,0,0)
+      pdf.setTextColor(0, 0, 0); // Set text color to black
       pdf.text("Program:", leftMargin, yPos);
+      pdf.setFont('helvetica', 'normal');
       yPos += 7;
       
       // Track page count
@@ -372,9 +289,9 @@ const Template = () => {
       }
       
       // Output Images
-      pdf.setFontSize(12); // Match Aim section font size
+      pdf.setFontSize(12);
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); // Set text color to black (RGB: 0,0,0)
+      pdf.setTextColor(0, 0, 0); // Set text color to black
       
       // Check if we need a new page for output
       if (yPos > pageHeight - borderMargin - contentMargin - 60) {
@@ -386,8 +303,8 @@ const Template = () => {
       }
       
       pdf.text("Output:", leftMargin, yPos);
+      pdf.setFont('helvetica', 'normal');
       yPos += 7;
-      pdf.setTextColor(0, 0, 0); // Keep text color black for content
       
       // Add multiple output images with their actual dimensions
       for (let i = 0; i < outputImages.length; i++) {
@@ -451,7 +368,7 @@ const Template = () => {
       // Result title
       pdf.setFontSize(12); // Setting the same font size as Aim section
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); // Set text color to black (RGB: 0,0,0)
+      pdf.setTextColor(0, 0, 0); // Set text color to black
       pdf.text("Result:", leftMargin, resultYPos);
       pdf.setFont('helvetica', 'normal');
       resultYPos += 7;
@@ -486,8 +403,6 @@ const Template = () => {
     setProgramImages([]);
     setOutputImages([]);
     setErrors({});
-    setLastKnownValues({});
-    setKeystrokeTimestamps({});
   };
 
   return (
@@ -508,20 +423,11 @@ const Template = () => {
                 type="text"
                 name="rollNo"
                 value={formData.rollNo}
-                onChange={handleSecureInputChange}
-                onInput={handleInputEvent}
+                onChange={handleInputChange}
                 onCopy={preventCopyPaste}
                 onPaste={preventCopyPaste}
-                onCut={preventCopyPaste}
-                onDrop={preventCopyPaste}
-                onDragOver={preventCopyPaste}
-                onContextMenu={handleMobileInput}
-                onCompositionStart={monitorInput}
-                onCompositionEnd={monitorInput}
                 className={`w-full px-4 py-2 border ${errors.rollNo ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
                 placeholder="Enter your roll number"
-                autoComplete="off"
-                spellCheck="false"
                 required
               />
               {errors.rollNo && (
@@ -538,20 +444,11 @@ const Template = () => {
                 type="text"
                 name="expNo"
                 value={formData.expNo}
-                onChange={handleSecureInputChange}
-                onInput={handleInputEvent}
+                onChange={handleInputChange}
                 onCopy={preventCopyPaste}
                 onPaste={preventCopyPaste}
-                onCut={preventCopyPaste}
-                onDrop={preventCopyPaste}
-                onDragOver={preventCopyPaste}
-                onContextMenu={handleMobileInput}
-                onCompositionStart={monitorInput}
-                onCompositionEnd={monitorInput}
                 className={`w-full px-4 py-2 border ${errors.expNo ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
                 placeholder="Enter experiment number"
-                autoComplete="off"
-                spellCheck="false"
                 required
               />
               {errors.expNo && (
@@ -568,20 +465,11 @@ const Template = () => {
                 type="text"
                 name="expTitle"
                 value={formData.expTitle}
-                onChange={handleSecureInputChange}
-                onInput={handleInputEvent}
+                onChange={handleInputChange}
                 onCopy={preventCopyPaste}
                 onPaste={preventCopyPaste}
-                onCut={preventCopyPaste}
-                onDrop={preventCopyPaste}
-                onDragOver={preventCopyPaste}
-                onContextMenu={handleMobileInput}
-                onCompositionStart={monitorInput}
-                onCompositionEnd={monitorInput}
                 className={`w-full px-4 py-2 border ${errors.expTitle ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
                 placeholder="Enter experiment title"
-                autoComplete="off"
-                spellCheck="false"
                 required
               />
               {errors.expTitle && (
@@ -597,21 +485,12 @@ const Template = () => {
               <textarea
                 name="aim"
                 value={formData.aim}
-                onChange={handleSecureInputChange}
-                onInput={handleInputEvent}
+                onChange={handleInputChange}
                 onCopy={preventCopyPaste}
                 onPaste={preventCopyPaste}
-                onCut={preventCopyPaste}
-                onDrop={preventCopyPaste}
-                onDragOver={preventCopyPaste}
-                onContextMenu={handleMobileInput}
-                onCompositionStart={monitorInput}
-                onCompositionEnd={monitorInput}
                 rows="3"
                 className={`w-full px-4 py-2 border ${errors.aim ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
                 placeholder="Enter the aim of the experiment"
-                autoComplete="off"
-                spellCheck="false"
                 required
               ></textarea>
               {errors.aim && (
@@ -627,21 +506,12 @@ const Template = () => {
               <textarea
                 name="procedure"
                 value={formData.procedure}
-                onChange={handleSecureInputChange}
-                onInput={handleInputEvent}
+                onChange={handleInputChange}
                 onCopy={preventCopyPaste}
                 onPaste={preventCopyPaste}
-                onCut={preventCopyPaste}
-                onDrop={preventCopyPaste}
-                onDragOver={preventCopyPaste}
-                onContextMenu={handleMobileInput}
-                onCompositionStart={monitorInput}
-                onCompositionEnd={monitorInput}
                 rows="5"
                 className={`w-full px-4 py-2 border ${errors.procedure ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
                 placeholder="Describe the procedure step by step"
-                autoComplete="off"
-                spellCheck="false"
                 required
               ></textarea>
               {errors.procedure && (
@@ -815,21 +685,12 @@ const Template = () => {
               <textarea
                 name="result"
                 value={formData.result}
-                onChange={handleSecureInputChange}
-                onInput={handleInputEvent}
+                onChange={handleInputChange}
                 onCopy={preventCopyPaste}
                 onPaste={preventCopyPaste}
-                onCut={preventCopyPaste}
-                onDrop={preventCopyPaste}
-                onDragOver={preventCopyPaste}
-                onContextMenu={handleMobileInput}
-                onCompositionStart={monitorInput}
-                onCompositionEnd={monitorInput}
                 rows="3"
                 className={`w-full px-4 py-2 border ${errors.result ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
                 placeholder="Describe the result of the experiment"
-                autoComplete="off"
-                spellCheck="false"
                 required
               ></textarea>
               {errors.result && (
