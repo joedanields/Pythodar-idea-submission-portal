@@ -4,7 +4,7 @@ import html2canvas from 'html2canvas';
 // Import your logo from assets folder
 // Adjust the path as needed depending on where your logo is stored
 import logo from '../assets/kite-logo.webp'; 
-import pyExpoLogo from '../assets/pyExpoLogo.svg'; // Add this new import for Python Expo logo
+import pyExpoLogo from '../assets/PyExpoLogo.svg'; // Add this new import for Python Expo logo
 import techCommunityLogo from '../assets/ips.webp';// Changze this path to match your actual logo location
 
 const Template = () => {
