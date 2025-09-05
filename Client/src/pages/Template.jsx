@@ -278,12 +278,24 @@ const Template = () => {
         const imgWidth = img.width * pxToMm;
         const imgHeight = img.height * pxToMm;
         
-        // If image is wider than content width, scale it down to fit the page
+        // Calculate available space for image
+        const availableHeight = pageHeight - (2 * borderMargin) - (2 * contentMargin);
+        const maxImageHeight = Math.min(availableHeight * 0.8, 160); // Max 80% of available height or 160mm
+        
+        // Determine final dimensions to fit within page
         let finalImgWidth = imgWidth;
         let finalImgHeight = imgHeight;
+        
+        // Scale down if image is wider than content width
         if (imgWidth > contentWidth) {
           finalImgWidth = contentWidth;
           finalImgHeight = (imgHeight * contentWidth) / imgWidth;
+        }
+        
+        // Further scale down if image is still too tall
+        if (finalImgHeight > maxImageHeight) {
+          finalImgWidth = (finalImgWidth * maxImageHeight) / finalImgHeight;
+          finalImgHeight = maxImageHeight;
         }
         
         // Check if we need a new page
@@ -335,12 +347,24 @@ const Template = () => {
         const imgWidth = img.width * pxToMm;
         const imgHeight = img.height * pxToMm;
         
-        // If image is wider than content width, scale it down to fit the page
+        // Calculate available space for image
+        const availableHeight = pageHeight - (2 * borderMargin) - (2 * contentMargin);
+        const maxImageHeight = Math.min(availableHeight * 0.8, 160); // Max 80% of available height or 160mm
+        
+        // Determine final dimensions to fit within page
         let finalImgWidth = imgWidth;
         let finalImgHeight = imgHeight;
+        
+        // Scale down if image is wider than content width
         if (imgWidth > contentWidth) {
           finalImgWidth = contentWidth;
           finalImgHeight = (imgHeight * contentWidth) / imgWidth;
+        }
+        
+        // Further scale down if image is still too tall
+        if (finalImgHeight > maxImageHeight) {
+          finalImgWidth = (finalImgWidth * maxImageHeight) / finalImgHeight;
+          finalImgHeight = maxImageHeight;
         }
         
         // Check if we need a new page
