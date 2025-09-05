@@ -316,6 +316,9 @@ const Template = () => {
         yPos = borderMargin + contentMargin; // Start content after border margin
       }
       
+      // Output heading
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0); // Set text color to black
       pdf.text("Output:", leftMargin, yPos);
       pdf.setFont('helvetica', 'normal');
       yPos += 7;
