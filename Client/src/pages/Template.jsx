@@ -582,7 +582,7 @@ const Template = () => {
       rollNo: '',
       expNo: '',
       expTitle: '',
-      academicYear: '2', // Default to 2nd year
+      academicYear: '1', // Default to 1nd year
       aim: '',
       procedure: '',
       result: ''
