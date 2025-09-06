@@ -5,7 +5,8 @@ import html2canvas from 'html2canvas';
 // Adjust the path as needed depending on where your logo is stored
 import logo from '../assets/kite-logo.webp'; 
 import pyExpoLogo from '../assets/PyExpoLogo.svg'; // Add this new import for Python Expo logo
-import techCommunityLogo from '../assets/ips.webp';// Changze this path to match your actual logo location
+import techCommunityLogo from '../assets/ips.webp'; // Change this path to match your actual logo location
+import splitupTable from '../assets/splitup.png'; // Import the splitup table image
 
 const Template = () => {
   // State for form fields
@@ -13,7 +14,7 @@ const Template = () => {
     rollNo: '', // Added roll number field
     expNo: '',
     expTitle: '',
-    academicYear: '2', // Default to 2nd year
+    academicYear: '1', // Default to 1st year
     aim: '',
     procedure: '',
     result: ''
@@ -28,6 +29,7 @@ const Template = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isSplitupImageLoaded, setIsSplitupImageLoaded] = useState(true); // Track if splitup image is loaded
   
   // References to form elements
   const formRef = useRef(null);
@@ -173,33 +175,68 @@ const Template = () => {
         const tableX = (pageWidth - tableWidth) / 2; // Center the table horizontally
         let tableY = yPos;
         
-        // Draw table header
-        pdf.setFont('helvetica', 'bold');
-        
-        // Draw header cells
-        pdf.rect(tableX, tableY, colWidths[0], rowHeight);
-        pdf.rect(tableX + colWidths[0], tableY, colWidths[1], rowHeight);
-        pdf.rect(tableX + colWidths[0] + colWidths[1], tableY, colWidths[2], rowHeight);
-        
-        // Add header text
+        // Helper function for centering text in cells
         const centerTextInCell = (text, x, width, y) => {
           const textWidth = pdf.getStringUnitWidth(text) * 10 / pdf.internal.scaleFactor;
           const textX = x + (width - textWidth) / 2;
           pdf.text(text, textX, y + 5);
         };
         
-        centerTextInCell('Content', tableX, colWidths[0], tableY);
-        centerTextInCell('Max Marks', tableX + colWidths[0], colWidths[1], tableY);
-        centerTextInCell('Marks Rewarded', tableX + colWidths[0] + colWidths[1], colWidths[2], tableY);
-        
-        tableY += rowHeight;
-        
-        // Draw table content - based on academic year
-        pdf.setFont('helvetica', 'normal');
-        
-        // Content rows based on academic year
-        // For years 2, 3, and 4 (mark structure from the image)
-        if (formData.academicYear === '2' || formData.academicYear === '3' || formData.academicYear === '4') {
+        // For first year, use the splitup.png image instead of drawing the table
+        if (formData.academicYear === '1') {
+          // Set dimensions for the table image - adjust based on the actual image proportions
+          const splitupImageWidth = 160; // mm - Width of the table image
+          const splitupImageHeight = 70; // mm - Height adjusted based on image aspect ratio
+          
+          // Center the table horizontally
+          const splitupTableX = (pageWidth - splitupImageWidth) / 2;
+          
+          try {
+            // Add the splitup image to the PDF - you need to import this image at the top of the file
+            // import splitupTable from '../assets/splitup.png';
+            pdf.addImage(splitupTable, 'PNG', splitupTableX, tableY, splitupImageWidth, splitupImageHeight);
+            
+            // Update tableY position after adding the image
+            tableY += splitupImageHeight;
+          } catch (error) {
+            console.error('Error adding splitup table image to PDF:', error);
+            
+            // Fallback if the image fails to load
+            pdf.setDrawColor(0);
+            pdf.setLineWidth(0.1);
+            pdf.rect(splitupTableX, tableY, splitupImageWidth, 30);
+            
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(12);
+            pdf.text("Python Programming Lab Mark Splitup", splitupTableX + splitupImageWidth/2, tableY + 10, { align: 'center' });
+            
+            pdf.setFont('helvetica', 'italic');
+            pdf.setFontSize(10);
+            pdf.text("Could not load marks splitup table image.", splitupTableX + splitupImageWidth/2, tableY + 20, { align: 'center' });
+            
+            tableY += 35; // Add some extra space
+          }
+        } else {
+          // For non-first-year students, draw the standard table
+          
+          // Draw table header
+          pdf.setFont('helvetica', 'bold');
+          
+          // Draw header cells
+          pdf.rect(tableX, tableY, colWidths[0], rowHeight);
+          pdf.rect(tableX + colWidths[0], tableY, colWidths[1], rowHeight);
+          pdf.rect(tableX + colWidths[0] + colWidths[1], tableY, colWidths[2], rowHeight);
+          
+          // Add header text
+          centerTextInCell('Content', tableX, colWidths[0], tableY);
+          centerTextInCell('Max Marks', tableX + colWidths[0], colWidths[1], tableY);
+          centerTextInCell('Marks Rewarded', tableX + colWidths[0] + colWidths[1], colWidths[2], tableY);
+          
+          tableY += rowHeight;
+          
+          // Draw table content based on academic year
+          pdf.setFont('helvetica', 'normal');
+          
           const rows = [
             ['Aim & Algorithm', '20', ''],
             ['Program Execution', '30', ''],
@@ -223,14 +260,6 @@ const Template = () => {
             
             tableY += rowHeight;
           });
-        } 
-        // For 1st year (will be updated later when the mark structure is provided)
-        else if (formData.academicYear === '1') {
-          // Placeholder for 1st year mark structure
-          // Will be updated when the structure is provided
-          pdf.setFont('helvetica', 'italic');
-          pdf.text('Mark structure for 1st year will be updated soon.', tableX, tableY + 5);
-          tableY += rowHeight * 2;
         }
         
         // Return the new Y position after the table
