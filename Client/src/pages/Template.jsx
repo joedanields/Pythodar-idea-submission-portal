@@ -1,35 +1,34 @@
 import { useState, useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-// Import your logo from assets folder
+// Import your logos from assets folder
 // Adjust the path as needed depending on where your logo is stored
-import logo from '../assets/kite-logo.webp'; 
+import logo from '../assets/col-kitelogo-removebg-preview2.jpg'; // Updated college logo path
 import pyExpoLogo from '../assets/PyExpoLogo.svg'; // Add this new import for Python Expo logo
 import techCommunityLogo from '../assets/ips.webp'; // Change this path to match your actual logo location
 import splitupTable from '../assets/splitup.png'; // Import the splitup table image
 
 const Template = () => {
+  // Maximum number of ideas that can be submitted - CHANGE THIS VALUE TO SET LIMIT
+  const MAX_IDEAS = 1; // Set your desired maximum here
+  
   // State for form fields
   const [formData, setFormData] = useState({
-    rollNo: '', // Added roll number field
-    expNo: '',
-    expTitle: '',
-    academicYear: '1', // Default to 1st year
-    aim: '',
-    procedure: '',
-    result: ''
+    name: '',
+    rollNo: '',
+    registrationNo: '',
+    department: '',
   });
   
-  
-  // State for image uploads - now arrays to handle multiple images
-  const [programImages, setProgramImages] = useState([]);
-  const [outputImages, setOutputImages] = useState([]);
+  // State for ideas - only 1 idea
+  const [ideas, setIdeas] = useState([
+    { id: 1, title: '', description: '' }
+  ]);
   
   // State for form validation and submission
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [isSplitupImageLoaded, setIsSplitupImageLoaded] = useState(true); // Track if splitup image is loaded
   
   // References to form elements
   const formRef = useRef(null);
@@ -43,6 +42,25 @@ const Template = () => {
     });
   };
 
+  // Handle idea input changes
+  const handleIdeaChange = (id, field, value) => {
+    setIdeas(ideas.map(idea => 
+      idea.id === id ? { ...idea, [field]: value } : idea
+    ));
+  };
+
+  // Add new idea field (disabled for single idea)
+  const addIdea = () => {
+    // Disabled - only one idea allowed
+    return;
+  };
+
+  // Remove an idea field (disabled for single idea)
+  const removeIdea = (id) => {
+    // Disabled - only one idea allowed
+    return;
+  };
+
   // Prevent copy-paste for text inputs
   const preventCopyPaste = (e) => {
     e.preventDefault();
@@ -50,77 +68,20 @@ const Template = () => {
     return false;
   };
 
-  // Handle multiple image uploads
-  const handleImageUpload = (e, type) => {
-    const files = Array.from(e.target.files);
-    
-    if (files.length === 0) return;
-    
-    // Process each file
-    const validFiles = [];
-    let hasErrors = false;
-    
-    files.forEach(file => {
-      // Validate file is an image
-      if (!file.type.match('image.*')) {
-        alert(`File "${file.name}" is not an image. Please upload only image files.`);
-        hasErrors = true;
-        return;
-      }
-      
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`File "${file.name}" exceeds 5MB limit.`);
-        hasErrors = true;
-        return;
-      }
-      
-      validFiles.push(file);
-    });
-    
-    if (hasErrors) {
-      e.target.value = '';
-      return;
-    }
-    
-    // Process valid files
-    validFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = function(loadEvent) {
-        if (type === 'program') {
-          setProgramImages(prev => [...prev, loadEvent.target.result]);
-        } else {
-          setOutputImages(prev => [...prev, loadEvent.target.result]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-    
-    e.target.value = '';
-  };
-
-  // Remove an image from the collection
-  const removeImage = (index, type) => {
-    if (type === 'program') {
-      setProgramImages(prev => prev.filter((_, i) => i !== index));
-    } else {
-      setOutputImages(prev => prev.filter((_, i) => i !== index));
-    }
-  };
-
   // Validate form before submission
   const validateForm = () => {
     const newErrors = {};
     
+    if (!formData.name) newErrors.name = "Name is required";
     if (!formData.rollNo) newErrors.rollNo = "Roll number is required";
-    if (!formData.expNo) newErrors.expNo = "Experiment number is required";
-    if (!formData.expTitle) newErrors.expTitle = "Experiment title is required";
-    if (!formData.academicYear) newErrors.academicYear = "Academic year is required";
-    if (!formData.aim) newErrors.aim = "Aim is required";
-    if (!formData.procedure) newErrors.procedure = "Procedure is required";
-    if (!formData.result) newErrors.result = "Result is required";
-    if (programImages.length === 0) newErrors.programImages = "At least one program image is required";
-    if (outputImages.length === 0) newErrors.outputImages = "At least one output image is required";
+    if (!formData.registrationNo) newErrors.registrationNo = "Registration number is required";
+    if (!formData.department) newErrors.department = "Department is required";
+    
+    // Validate ideas
+    ideas.forEach((idea, index) => {
+      if (!idea.title) newErrors[`ideaTitle${idea.id}`] = "Idea title is required";
+      if (!idea.description) newErrors[`ideaDescription${idea.id}`] = "Idea description is required";
+    });
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -138,7 +99,7 @@ const Template = () => {
     }
   };
 
-  // Generate PDF from form data with border and header box
+  // Generate PDF from form data
   const generatePDF = async () => {
     setIsGeneratingPdf(true);
     
@@ -146,475 +107,253 @@ const Template = () => {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const borderMargin = 5; // 5mm  border margin
-      const contentMargin = 20; // 20mm content margin from border
-      const contentWidth = pageWidth - (2 * (borderMargin + contentMargin));
+      const margin = 15;
       
-      // Function to add border to each page
-      const addPageBorder = () => {
-        // Add border around the page
-        pdf.setLineWidth(0.5);
-        pdf.setDrawColor(0, 0, 0);
-        pdf.rect(borderMargin, borderMargin, pageWidth - (2 * borderMargin), pageHeight - (2 * borderMargin));
-      };
+      // Add border to page
+      pdf.setLineWidth(0.5);
+      pdf.setDrawColor(0, 0, 0);
+      pdf.rect(5, 5, pageWidth - 10, pageHeight - 10);
       
-      // Function to add footer with page number and roll number
-      // Function to draw the marks split-up table
-      const drawMarksSplitUpTable = () => {
-        // Set initial styles for the table
-        pdf.setDrawColor(0); // Black border
-        pdf.setLineWidth(0.1);
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(0, 0, 0);
-        
-        // Table dimensions and positioning
-        const tableWidth = 120; // mm
-        const rowHeight = 7; // mm
-        const colWidths = [40, 40, 40]; // Content, Max Marks, Marks Rewarded columns
-        const tableX = (pageWidth - tableWidth) / 2; // Center the table horizontally
-        let tableY = yPos;
-        
-        // Helper function for centering text in cells
-        const centerTextInCell = (text, x, width, y) => {
-          const textWidth = pdf.getStringUnitWidth(text) * 10 / pdf.internal.scaleFactor;
-          const textX = x + (width - textWidth) / 2;
-          pdf.text(text, textX, y + 5);
-        };
-        
-        // For first year, use the splitup.png image instead of drawing the table
-        if (formData.academicYear === '1') {
-          // Set dimensions for the table image - adjust based on the actual image proportions
-          const splitupImageWidth = 160; // mm - Width of the table image
-          const splitupImageHeight = 70; // mm - Height adjusted based on image aspect ratio
-          
-          // Center the table horizontally
-          const splitupTableX = (pageWidth - splitupImageWidth) / 2;
-          
-          try {
-            // Add the splitup image to the PDF - you need to import this image at the top of the file
-            // import splitupTable from '../assets/splitup.png';
-            pdf.addImage(splitupTable, 'PNG', splitupTableX, tableY, splitupImageWidth, splitupImageHeight);
-            
-            // Update tableY position after adding the image
-            tableY += splitupImageHeight;
-          } catch (error) {
-            console.error('Error adding splitup table image to PDF:', error);
-            
-            // Fallback if the image fails to load
-            pdf.setDrawColor(0);
-            pdf.setLineWidth(0.1);
-            pdf.rect(splitupTableX, tableY, splitupImageWidth, 30);
-            
-            pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(12);
-            pdf.text("Python Programming Lab Mark Splitup", splitupTableX + splitupImageWidth/2, tableY + 10, { align: 'center' });
-            
-            pdf.setFont('helvetica', 'italic');
-            pdf.setFontSize(10);
-            pdf.text("Could not load marks splitup table image.", splitupTableX + splitupImageWidth/2, tableY + 20, { align: 'center' });
-            
-            tableY += 35; // Add some extra space
-          }
-        } else {
-          // For non-first-year students, draw the standard table
-          
-          // Draw table header
-          pdf.setFont('helvetica', 'bold');
-          
-          // Draw header cells
-          pdf.rect(tableX, tableY, colWidths[0], rowHeight);
-          pdf.rect(tableX + colWidths[0], tableY, colWidths[1], rowHeight);
-          pdf.rect(tableX + colWidths[0] + colWidths[1], tableY, colWidths[2], rowHeight);
-          
-          // Add header text
-          centerTextInCell('Content', tableX, colWidths[0], tableY);
-          centerTextInCell('Max Marks', tableX + colWidths[0], colWidths[1], tableY);
-          centerTextInCell('Marks Rewarded', tableX + colWidths[0] + colWidths[1], colWidths[2], tableY);
-          
-          tableY += rowHeight;
-          
-          // Draw table content based on academic year
-          pdf.setFont('helvetica', 'normal');
-          
-          const rows = [
-            ['Aim & Algorithm', '20', ''],
-            ['Program Execution', '30', ''],
-            ['Output', '30', ''],
-            ['Result', '10', ''],
-            ['Viva-voce', '10', ''],
-            ['Total', '100', '']
-          ];
-          
-          // Draw rows
-          rows.forEach(row => {
-            // Draw row cells
-            pdf.rect(tableX, tableY, colWidths[0], rowHeight);
-            pdf.rect(tableX + colWidths[0], tableY, colWidths[1], rowHeight);
-            pdf.rect(tableX + colWidths[0] + colWidths[1], tableY, colWidths[2], rowHeight);
-            
-            // Add text
-            pdf.text(row[0], tableX + 2, tableY + 5); // Left-aligned
-            centerTextInCell(row[1], tableX + colWidths[0], colWidths[1], tableY); // Center-aligned
-            // Marks rewarded column is left empty
-            
-            tableY += rowHeight;
-          });
-        }
-        
-        // Return the new Y position after the table
-        return tableY + 10; // Add a margin after the table
-      };
-      
-      const addFooter = (pageNum) => {
-        pdf.setFontSize(8);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(100, 100, 100);
-        
-        // Add roll number on left side of footer
-        pdf.text(`Roll No: ${formData.rollNo}`, borderMargin + 5, pageHeight - (borderMargin + 5));
-        
-        // Add "Page No:" on right side of footer without showing the actual page number
-        pdf.text("Page No:", pageWidth - (borderMargin + 20), pageHeight - (borderMargin + 5));
-        
-        // Add timestamp and date in the center of the footer
-        const currentDate = new Date();
-        const dateString = currentDate.toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
+      // Add logos using canvas conversion for better compatibility
+      const loadImageAsDataURL = (imageSrc) => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = reject;
+          img.src = imageSrc;
         });
-        const timeString = currentDate.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        });
-        const timestampText = `Generated on: ${dateString} at ${timeString}`;
-        
-        pdf.setFontSize(7);
-        pdf.setFont('helvetica', 'italic');
-        pdf.setTextColor(100, 100, 100);
-        pdf.text(timestampText, pageWidth / 2, pageHeight - (borderMargin + 5), { align: 'center' });
-        
-        // Add "Record generated by ipstechcommunity@kgkite.ac.in" at bottom left after the border
-        pdf.setFontSize(5); // Smaller font size for the website label
-        pdf.setFont('helvetica', 'italic');
-        pdf.setTextColor(120, 120, 120); // Lighter gray color
-        pdf.text("Record generated by ipstechcommunity@kgkite.ac.in", 
-                borderMargin + 5, // Position it near the left border
-                pageHeight - 2); // Position it at the very bottom of the page
-                
-        // Add "co-Kreate your Genius" at bottom right with K and G in bold red
-        pdf.setFontSize(5); // Same small font size
-        
-        // Instead of splitting the text into separate parts with manual positioning,
-        // we'll use a more precise approach with measured text widths
-        
-        const rightTextX = pageWidth - borderMargin - 25; // Starting X position
-        const bottomY = pageHeight - 2; // Y position at bottom
-        
-        // Create text sections with their specific styling
-        const textSections = [
-          { text: "co-", style: 'normal', color: [120, 120, 120] },
-          { text: "K", style: 'bold', color: [0, 0, 0] },
-          { text: "reate your ", style: 'normal', color: [120, 120, 120] },
-          { text: "G", style: 'bold', color: [0, 0, 0] },
-          { text: "enius", style: 'normal', color: [120, 120, 120] }
-        ];
-        
-        // Draw each text section with proper styling
-        let currentX = rightTextX;
-        for (const section of textSections) {
-          // Apply styling for this section
-          pdf.setFont('helvetica', section.style);
-          pdf.setTextColor(section.color[0], section.color[1], section.color[2]);
-          
-          // Draw the text at the current position
-          pdf.text(section.text, currentX, bottomY);
-          
-          // Move position forward by the width of the text just drawn
-          // Get the width of the text based on the current font style
-          const textWidth = pdf.getStringUnitWidth(section.text) * 5 / pdf.internal.scaleFactor;
-          currentX += textWidth;
-        }
       };
-      
-      // Function to add header box (only for first page)
-      const addHeaderBox = () => {
-        // Header box - 40px (≈14mm) from top of border, 90% width, centered
-        const headerBoxY = borderMargin + 14;
-        const headerBoxWidth = (pageWidth - (2 * borderMargin)) * 0.9;
-        const headerBoxX = (pageWidth - headerBoxWidth) / 2;
-        const headerBoxHeight = 20; // 20mm height for header box
+
+      try {
+        // Load all logos as data URLs
+        const [collegeLogoData, pyExpoLogoData, ipsLogoData] = await Promise.all([
+          loadImageAsDataURL(logo),
+          loadImageAsDataURL(pyExpoLogo),
+          loadImageAsDataURL(techCommunityLogo)
+        ]);
+
+        // Top-left: College logo (enlarged and properly positioned in corner)
+        pdf.addImage(collegeLogoData, 'PNG', 8, 8, 35, 25);
         
-        // Draw header box border
-        pdf.rect(headerBoxX, headerBoxY, headerBoxWidth, headerBoxHeight);
+        // Top-right: PyExpo logo (properly positioned in corner)
+        pdf.addImage(pyExpoLogoData, 'PNG', pageWidth - 33, 8, 25, 25);
         
-        // Left section (15% of header box width) for Exp.No and Date
-        const leftSectionWidth = headerBoxWidth * 0.15;
-        const rightSectionX = headerBoxX + leftSectionWidth;
-        const rightSectionWidth = headerBoxWidth * 0.85;
-        
-        // Draw vertical line to separate left and right sections
-        pdf.line(rightSectionX, headerBoxY, rightSectionX, headerBoxY + headerBoxHeight);
-        
-        // Draw horizontal line in left section to separate Exp.No and Date
-        const leftSectionMidY = headerBoxY + (headerBoxHeight / 2);
-        pdf.line(headerBoxX, leftSectionMidY, rightSectionX, leftSectionMidY);
-        
-        // Add text in left section
-        pdf.setFontSize(8);
-        pdf.setFont('helvetica', 'normal');
-        
-        // Exp.No text (top half of left section)
-        const expNoY = headerBoxY + 6;
-        pdf.text(`Exp.No: ${formData.expNo}`, headerBoxX + 2, expNoY);
-        
-        // Date text (bottom half of left section) - empty value
-        const dateY = leftSectionMidY + 6;
-        pdf.text("Date:", headerBoxX + 2, dateY);
-        
-        // Title text (right section) - bold and centered
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        const titleY = headerBoxY + (headerBoxHeight / 2) + 2;
-        const titleText = pdf.splitTextToSize(formData.expTitle, rightSectionWidth - 4);
-        
-        // Center the title text
-        const titleX = rightSectionX + (rightSectionWidth / 2);
-        pdf.text(titleText, titleX, titleY, { align: "center", maxWidth: rightSectionWidth - 4 });
-        
-        return headerBoxY + headerBoxHeight + 10; // Return Y position after header
-      };
-      
-      // Add border and header to first page only
-      addPageBorder();
-      let yPos = addHeaderBox();
-      const leftMargin = borderMargin + contentMargin;
-      
-      // Add main content
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'normal');
-      
-      // Aim
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); // Set text color to black
-      pdf.text("Aim:", leftMargin, yPos);
-      pdf.setFont('helvetica', 'normal');
-      yPos += 7;
-      
-      // Handle multiline text wrapping
-      const splitAim = pdf.splitTextToSize(formData.aim, contentWidth);
-      pdf.setTextColor(0, 0, 0); // Ensure text color is black for content
-      pdf.text(splitAim, leftMargin, yPos);
-      yPos += splitAim.length * 7 + 25; // Added extra 15mm space before Procedure
-      
-      // Procedure
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); // Set text color to black
-      pdf.text("Procedure:", leftMargin, yPos);
-      pdf.setFont('helvetica', 'normal');
-      yPos += 7;
-      
-      const splitProcedure = pdf.splitTextToSize(formData.procedure, contentWidth);
-      pdf.text(splitProcedure, leftMargin, yPos);
-      
-      // Initialize page counter
-      let currentPage = 1;
-      
-      // Always start Program section on a new page
-      addFooter(currentPage); // Add footer to current page
-      pdf.addPage();
-      currentPage++;
-      addPageBorder(); // Add border to new page
-      yPos = borderMargin + contentMargin; // Reset Y position to start of new page
-      
-      // Program Images
-      pdf.setFontSize(12); // Ensure consistent font size with other headings
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); // Set text color to black
-      pdf.text("Program:", leftMargin, yPos);
-      pdf.setFont('helvetica', 'normal');
-      yPos += 7;
-      
-      // Add multiple program images with their actual dimensions
-      for (let i = 0; i < programImages.length; i++) {
-        // Create temporary image to get original dimensions
-        const img = new Image();
-        img.src = programImages[i];
-        
-        // Use original image dimensions (converted from pixels to mm)
-        // Standard conversion: 1 pixel ≈ 0.264583 mm
-        const pxToMm = 0.264583;
-        const imgWidth = img.width * pxToMm;
-        const imgHeight = img.height * pxToMm;
-        
-        // Calculate available space for image
-        const availableHeight = pageHeight - (2 * borderMargin) - (2 * contentMargin);
-        const maxImageHeight = Math.min(availableHeight * 0.8, 160); // Max 80% of available height or 160mm
-        
-        // Determine final dimensions to fit within page
-        let finalImgWidth = imgWidth;
-        let finalImgHeight = imgHeight;
-        
-        // Scale down if image is wider than content width
-        if (imgWidth > contentWidth) {
-          finalImgWidth = contentWidth;
-          finalImgHeight = (imgHeight * contentWidth) / imgWidth;
-        }
-        
-        // Further scale down if image is still too tall
-        if (finalImgHeight > maxImageHeight) {
-          finalImgWidth = (finalImgWidth * maxImageHeight) / finalImgHeight;
-          finalImgHeight = maxImageHeight;
-        }
-        
-        // Check if we need a new page
-        if (yPos + finalImgHeight > pageHeight - borderMargin - contentMargin) {
-          addFooter(currentPage); // Add footer to current page before adding a new one
-          pdf.addPage();
-          currentPage++;
-          addPageBorder(); // Add only border to new page
-          yPos = borderMargin + contentMargin; // Start content after border margin
-        }
-        
-        // Calculate horizontal centering if image is smaller than content width
-        const xOffset = finalImgWidth < contentWidth ? (contentWidth - finalImgWidth) / 2 : 0;
-        
-        pdf.addImage(programImages[i], 'JPEG', leftMargin + xOffset, yPos, finalImgWidth, finalImgHeight);
-        yPos += finalImgHeight + 5; // Add a small space after image
+        // Bottom-right: IPS logo
+        pdf.addImage(ipsLogoData, 'PNG', pageWidth - margin - 15, pageHeight - 25, 15, 15);
+      } catch (logoError) {
+        console.log('Logo loading error:', logoError);
+        // Continue without logos if there's an error
       }
       
-      // Output Images - Always start on a new page
-      pdf.setFontSize(12);
+      let yPos = margin + 35; // Adjusted to account for enlarged top logos
+      
+      // Title: PYTHODAR
+      pdf.setFontSize(24);
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); // Set text color to black
+      pdf.setTextColor(0, 0, 139); // Dark blue
+      pdf.text('PYTHODAR', pageWidth / 2, yPos, { align: 'center' });
+      yPos += 12;
       
-      // Always create a new page for output section
-      addFooter(currentPage); // Add footer to current page
-      pdf.addPage();
-      currentPage++;
-      addPageBorder(); // Add border to new page
-      yPos = borderMargin + contentMargin; // Reset Y position to start of new page
-      
-      // Output heading
-      pdf.setFontSize(12); // Ensure consistent font size with other headings
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); // Set text color to black
-      pdf.text("Output:", leftMargin, yPos);
-      pdf.setFont('helvetica', 'normal');
-      yPos += 7;
-      
-      // Add multiple output images with their actual dimensions
-      for (let i = 0; i < outputImages.length; i++) {
-        // Create temporary image to get original dimensions
-        const img = new Image();
-        img.src = outputImages[i];
-        
-        // Use original image dimensions (converted from pixels to mm)
-        // Standard conversion: 1 pixel ≈ 0.264583 mm
-        const pxToMm = 0.264583;
-        const imgWidth = img.width * pxToMm;
-        const imgHeight = img.height * pxToMm;
-        
-        // Calculate available space for image
-        const availableHeight = pageHeight - (2 * borderMargin) - (2 * contentMargin);
-        const maxImageHeight = Math.min(availableHeight * 0.8, 160); // Max 80% of available height or 160mm
-        
-        // Determine final dimensions to fit within page
-        let finalImgWidth = imgWidth;
-        let finalImgHeight = imgHeight;
-        
-        // Scale down if image is wider than content width
-        if (imgWidth > contentWidth) {
-          finalImgWidth = contentWidth;
-          finalImgHeight = (imgHeight * contentWidth) / imgWidth;
-        }
-        
-        // Further scale down if image is still too tall
-        if (finalImgHeight > maxImageHeight) {
-          finalImgWidth = (finalImgWidth * maxImageHeight) / finalImgHeight;
-          finalImgHeight = maxImageHeight;
-        }
-        
-        // Check if we need a new page
-        if (yPos + finalImgHeight > pageHeight - borderMargin - contentMargin) {
-          addFooter(currentPage); // Add footer to current page
-          pdf.addPage();
-          currentPage++;
-          addPageBorder(); // Add only border to new page
-          yPos = borderMargin + contentMargin; // Start content after border margin
-        }
-        
-        // Calculate horizontal centering if image is smaller than content width
-        const xOffset = finalImgWidth < contentWidth ? (contentWidth - finalImgWidth) / 2 : 0;
-        
-        pdf.addImage(outputImages[i], 'JPEG', leftMargin + xOffset, yPos, finalImgWidth, finalImgHeight);
-        yPos += finalImgHeight + 5; // Add a small space after image
-      }
-      
-      // Calculate space needed for result text
-      const splitResult = pdf.splitTextToSize(formData.result, contentWidth);
-      
-      // Always start marks split-up and result on a new page
-      addFooter(currentPage); // Add footer to current page
-      pdf.addPage();
-      currentPage++;
-      addPageBorder(); // Add border to new page
-      
-      // Start marks split-up from the top of the page
-      let currentYPos = borderMargin + contentMargin;
-      
-      // Add marks split-up table title
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
       pdf.setTextColor(0, 0, 0);
-      pdf.text("Marks Split-up:", leftMargin, currentYPos);
+      pdf.text('Idea Submission Portal', pageWidth / 2, yPos, { align: 'center' });
+      yPos += 15;
+      
+      // Personal Details - Better aligned layout
+      pdf.setFontSize(11);
       pdf.setFont('helvetica', 'normal');
-      currentYPos += 10;
       
-      // Draw the marks split-up table
-      yPos = currentYPos;
-      const tableEndY = drawMarksSplitUpTable();
+      const leftCol = margin;
+      const rightCol = pageWidth / 2 + 10;
+      const lineHeight = 8;
+      const labelWidth = 40; // Fixed width for labels to ensure alignment
       
-      // Position result at the BOTTOM of the page
-      // Calculate how much space the result text will need
-      const resultTextHeight = splitResult.length * 7 + 15; // Text height plus spacing
-      
-      // Position result section at bottom of page with margin
-      let resultYPos = pageHeight - (borderMargin + contentMargin) - resultTextHeight;
-      
-      // If result is too large, position it below the table instead
-      if (resultTextHeight > pageHeight / 3) {
-        resultYPos = tableEndY + 20;
-      }
-      
-      // Result title - only show this ONCE
-      pdf.setFontSize(12); 
+      // Left column - Name
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0); 
-      pdf.text("Result:", leftMargin, resultYPos);
+      pdf.text('Name:', leftCol, yPos);
       pdf.setFont('helvetica', 'normal');
-      resultYPos += 7; // For result content
+      pdf.text(formData.name, leftCol + labelWidth, yPos);
       
-      // Check if there's enough space for the result content
-      if (resultYPos + splitResult.length * 7 > pageHeight - (borderMargin + contentMargin)) {
-        // Not enough space, add a new page
-        addFooter(currentPage);
+      // Right column - Roll No
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Roll No:', rightCol, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(formData.rollNo, rightCol + labelWidth, yPos);
+      yPos += lineHeight;
+      
+      // Left column - Registration No
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Registration No:', leftCol, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(formData.registrationNo, leftCol + labelWidth, yPos);
+      
+      // Right column - Department
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Department:', rightCol, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(formData.department, rightCol + labelWidth, yPos);
+      yPos += lineHeight + 10;
+      
+      // Ideas Table
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.text('Submitted Idea:', leftCol, yPos);
+      yPos += 8;
+      
+      // Table headers - removed checkbox column
+      const tableStartY = yPos;
+      const colWidths = [15, 70, 100]; // Idea No, Title, Description (no Selected column)
+      const tableX = leftCol;
+      let currentX = tableX;
+      
+      // Set styles for header
+      pdf.setLineWidth(0.3);
+      pdf.setDrawColor(0, 0, 0); // Black border
+      pdf.setFillColor(240, 240, 240); // Very light gray background
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 0, 0); // Black text
+      
+      // Draw header row - draw rectangles first, then add text
+      // Column 1: No.
+      pdf.rect(currentX, yPos, colWidths[0], 10, 'S'); // S = Stroke only (border only)
+      pdf.text('No.', currentX + colWidths[0] / 2, yPos + 6.5, { align: 'center' });
+      currentX += colWidths[0];
+      
+      // Column 2: Idea Title
+      pdf.rect(currentX, yPos, colWidths[1], 10, 'S');
+      pdf.text('Idea Title', currentX + 2, yPos + 6.5);
+      currentX += colWidths[1];
+      
+      // Column 3: Idea Description
+      pdf.rect(currentX, yPos, colWidths[2], 10, 'S');
+      pdf.text('Idea Description', currentX + 2, yPos + 6.5);
+      
+      yPos += 10;
+      
+      // Draw idea rows
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(0, 0, 0); // Ensure black text color for content
+      pdf.setLineWidth(0.3);
+      pdf.setDrawColor(0, 0, 0); // Black border
+      
+      ideas.forEach((idea, index) => {
+        currentX = tableX;
+        
+        // Calculate dynamic row height based on content
+        const titleLines = pdf.splitTextToSize(idea.title, colWidths[1] - 4);
+        const descLines = pdf.splitTextToSize(idea.description, colWidths[2] - 4);
+        
+        // Calculate height needed for text (line height is approximately 4mm)
+        const titleHeight = titleLines.length * 4;
+        const descHeight = descLines.length * 4;
+        const minRowHeight = 15; // Minimum height for readability
+        const padding = 6; // Top and bottom padding
+        
+        // Use the maximum height needed plus padding
+        const rowHeight = Math.max(minRowHeight, Math.max(titleHeight, descHeight) + padding);
+        
+        // Check if we need a new page
+        if (yPos + rowHeight > pageHeight - margin) {
+          pdf.addPage();
+          pdf.rect(5, 5, pageWidth - 10, pageHeight - 10);
+          yPos = margin;
+        }
+        
+        // Idea Number
+        pdf.rect(currentX, yPos, colWidths[0], rowHeight, 'S'); // S = Stroke only
+        pdf.text((index + 1).toString(), currentX + colWidths[0] / 2, yPos + rowHeight / 2, { align: 'center' });
+        currentX += colWidths[0];
+        
+        // Idea Title - wrap text
+        pdf.rect(currentX, yPos, colWidths[1], rowHeight, 'S');
+        pdf.text(titleLines, currentX + 2, yPos + 5);
+        currentX += colWidths[1];
+        
+        // Idea Description - wrap text
+        pdf.rect(currentX, yPos, colWidths[2], rowHeight, 'S');
+        pdf.text(descLines, currentX + 2, yPos + 5);
+        
+        yPos += rowHeight;
+      });
+      
+      yPos += 15;
+      
+      // Evaluator Section Header
+      if (yPos + 80 > pageHeight - margin) {
         pdf.addPage();
-        currentPage++;
-        addPageBorder();
-        resultYPos = borderMargin + contentMargin;
+        pdf.rect(5, 5, pageWidth - 10, pageHeight - 10);
+        yPos = margin;
       }
       
-      // Result content
-      pdf.text(splitResult, leftMargin, resultYPos);
+      // Add separator line
+      pdf.setLineWidth(0.5);
+      pdf.setDrawColor(0, 0, 139); // Dark blue
+      pdf.line(leftCol, yPos, pageWidth - margin, yPos);
+      yPos += 8;
       
-      // Add footer to result page
-      addFooter(currentPage);
+      // Evaluator Section Title
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.setTextColor(0, 0, 139); // Dark blue
+      pdf.text('Evaluator Section', leftCol, yPos);
+      pdf.setTextColor(0, 0, 0); // Back to black
+      yPos += 10;
+      
+      // Evaluator Name field
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.text('Evaluator Name:', leftCol, yPos);
+      pdf.setFont('helvetica', 'normal');
+      
+      // Draw line for evaluator name
+      const nameLineY = yPos + 2;
+      pdf.setLineWidth(0.3);
+      pdf.setDrawColor(0, 0, 0); // Black
+      pdf.line(leftCol + labelWidth, nameLineY, pageWidth - margin, nameLineY);
+      yPos += 12;
+      
+      // Remarks Section
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.text('Remarks:', leftCol, yPos);
+      yPos += 5;
+      
+      // Draw remarks box
+      const remarksHeight = 30;
+      pdf.setLineWidth(0.3);
+      pdf.rect(leftCol, yPos, pageWidth - 2 * margin, remarksHeight);
+      yPos += remarksHeight + 15;
+      
+      // Evaluator Signature Section
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.text('Evaluator Signature:', leftCol, yPos);
+      yPos += 8;
+      
+      // Draw signature line with more space
+      const sigLineY = yPos + 20;
+      pdf.setLineWidth(0.3);
+      pdf.line(leftCol, sigLineY, leftCol + 70, sigLineY);
+      
+      // Add footer
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'italic');
+      pdf.setTextColor(100, 100, 100);
+      const footerText = 'Generated by Pythodar Idea Portal - ipstechcommunity@kgkite.ac.in';
+      pdf.text(footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
       
       // Save PDF
-      pdf.save(`Experiment_${formData.rollNo}_${formData.expNo}.pdf`);
+      pdf.save(`Pythodar_${formData.name}_${formData.rollNo}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("Error generating PDF. Please try again.");
@@ -631,16 +370,14 @@ const Template = () => {
   // Reset form
   const resetForm = () => {
     setFormData({
+      name: '',
       rollNo: '',
-      expNo: '',
-      expTitle: '',
-      academicYear: '1', // Default to 1st year
-      aim: '',
-      procedure: '',
-      result: ''
+      registrationNo: '',
+      department: '',
     });
-    setProgramImages([]);
-    setOutputImages([]);
+    setIdeas([
+      { id: 1, title: '', description: '' }
+    ]);
     setErrors({});
     
     // Reset the form element itself if the ref is available
@@ -668,7 +405,7 @@ const Template = () => {
                   />
                 </div>
                 <div className="pl-2">
-                  <h2 className="text-2xl font-bold text-blue-900 tracking-tight">Record Generator</h2>
+                  <h2 className="text-2xl font-bold text-blue-900 tracking-tight">Pythodar Idea Submission Portal</h2>
                   <div className="flex items-center mt-1">
                     <div className="h-1.5 w-1.5 bg-blue-500 rounded-full mr-2"></div>
                     <p className="text-black-600 text-sm font-medium">co-<span className="text-red-600">K</span>reate your <span className="text-red-600">G</span>enius</p>
@@ -698,24 +435,59 @@ const Template = () => {
 
         <div className="shadow-xl rounded-2xl overflow-hidden">
           <div className="bg-gradient-to-r from-sky-900 to-blue-700 px-8 py-6">
-            <h1 className="text-white text-3xl font-bold tracking-tight">Create New Record</h1>
-            <p className="text-blue-50 text-sm mt-1">Complete the form below to generate your experiment record</p>
+            <h1 className="text-white text-3xl font-bold tracking-tight">Submit Your Innovative Ideas</h1>
+            <p className="text-blue-50 text-sm mt-1">Complete the form below to generate your Idea PDF </p>
           </div>
           
           <form ref={formRef} onSubmit={handleSubmit} className="px-8 py-8 space-y-8 bg-gradient-to-br from-blue-50 to-sky-50">
-            {/* Basic Info Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Roll Number */}
-              <div className="relative">
-                <label className="block text-sm font-medium text-blue-700 mb-2">
-                  Roll Number
-                </label>
+            {/* Info Box about Max Ideas */}
+            <div className="bg-blue-100 border-l-4 border-blue-500 p-4 rounded-md">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-blue-700">
+                  <span className="font-bold">Submit one innovative idea</span> that showcases your creativity and problem-solving skills.
+                </p>
+              </div>
+            </div>
+
+            {/* Personal Details Section */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Personal Details
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Name */}
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    onCopy={preventCopyPaste}
+                    onPaste={preventCopyPaste}
+                    className={`block w-full px-4 py-3 border ${errors.name ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
+                    placeholder="Enter your full name"
+                    required
+                  />
+                  {errors.name && (
+                    <p className="mt-2 text-sm text-red-600">{errors.name}</p>
+                  )}
+                </div>
+
+                {/* Roll Number */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Roll Number
+                  </label>
                   <input
                     type="text"
                     name="rollNo"
@@ -723,366 +495,122 @@ const Template = () => {
                     onChange={handleInputChange}
                     onCopy={preventCopyPaste}
                     onPaste={preventCopyPaste}
-                    className={`block w-full pl-10 pr-4 py-3 border ${errors.rollNo ? 'border-red-400' : 'border-blue-100'} rounded-lg shadow-sm bg-white bg-opacity-70 focus:ring-2 focus:ring-blue-400 focus:border-blue-300 focus:bg-white focus:bg-opacity-100 transition duration-150`}
+                    className={`block w-full px-4 py-3 border ${errors.rollNo ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
                     placeholder="Enter your roll number"
                     required
                   />
+                  {errors.rollNo && (
+                    <p className="mt-2 text-sm text-red-600">{errors.rollNo}</p>
+                  )}
                 </div>
-                {errors.rollNo && (
-                  <p className="mt-2 text-sm text-red-600">{errors.rollNo}</p>
-                )}
-              </div>
-              
-              {/* Experiment Number */}
-              <div className="relative">
-                <label className="block text-sm font-medium text-blue-700 mb-2">
-                  Experiment Number
-                </label>
+
+                {/* Registration Number */}
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                    </svg>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Registration Number
+                  </label>
                   <input
                     type="text"
-                    name="expNo"
-                    value={formData.expNo}
+                    name="registrationNo"
+                    value={formData.registrationNo}
                     onChange={handleInputChange}
                     onCopy={preventCopyPaste}
                     onPaste={preventCopyPaste}
-                    className={`block w-full pl-10 pr-4 py-3 border ${errors.expNo ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
-                    placeholder="Enter experiment number"
+                    className={`block w-full px-4 py-3 border ${errors.registrationNo ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
+                    placeholder="Enter your registration number"
                     required
                   />
+                  {errors.registrationNo && (
+                    <p className="mt-2 text-sm text-red-600">{errors.registrationNo}</p>
+                  )}
                 </div>
-                {errors.expNo && (
-                  <p className="mt-2 text-sm text-red-600">{errors.expNo}</p>
-                )}
+
+                {/* Department */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Department
+                  </label>
+                  <select
+                    name="department"
+                    value={formData.department}
+                    onChange={handleInputChange}
+                    className={`block w-full px-4 py-3 border ${errors.department ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white`}
+                    required
+                  >
+                    <option value="">Select your department</option>
+                    <option value="CSE">CSE</option>
+                    <option value="AI&DS">AI&DS</option>
+                    <option value="ECE">ECE</option>
+                    <option value="MECH">MECH</option>
+                    <option value="RA">RA</option>
+                    <option value="AIML">AI&ML</option>
+                    <option value="IT">IT</option>
+                    <option value="CYBER">Cyber Security</option>
+                    <option value="CSBS">CSBS</option>
+                  </select>
+                  {errors.department && (
+                    <p className="mt-2 text-sm text-red-600">{errors.department}</p>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Academic Year */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-blue-700 mb-2">
-                Academic Year
-                <span className="ml-2 text-xs text-blue-500">(For mark split-up display in the generated PDF)</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                </div>
-                <select
-                  name="academicYear"
-                  value={formData.academicYear}
-                  onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-4 py-3 border ${errors.academicYear ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
-                  required
-                >
-                  <option value="1">1st Year</option>
-                  <option value="2">2nd Year</option>
-                  <option value="3">3rd Year</option>
-                  <option value="4">4th Year</option>
-                </select>
-              </div>
-              {errors.academicYear && (
-                <p className="mt-2 text-sm text-red-600">{errors.academicYear}</p>
-              )}
-            </div>
-            
-            {/* Experiment Title */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-blue-700 mb-2">
-                Experiment Title
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  name="expTitle"
-                  value={formData.expTitle}
-                  onChange={handleInputChange}
-                  onCopy={preventCopyPaste}
-                  onPaste={preventCopyPaste}
-                  className={`block w-full pl-10 pr-4 py-3 border ${errors.expTitle ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
-                  placeholder="Enter a descriptive title for your experiment"
-                  required
-                />
-              </div>
-              {errors.expTitle && (
-                <p className="mt-2 text-sm text-red-600">{errors.expTitle}</p>
-              )}
-            </div>
-            
-            {/* Content Sections with Card-like Design */}
-            <div className="bg-slate-50 rounded-xl p-6 border border-gray-200 shadow-sm">
+            {/* Ideas Section */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
-                Experiment Details
+                Your Idea
               </h3>
-              
-              {/* Aim */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Aim
-                </label>
-                <div className="relative">
-                  <div className="absolute top-3 left-3 text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                    </svg>
-                  </div>
-                  <textarea
-                    name="aim"
-                    value={formData.aim}
-                    onChange={handleInputChange}
-                    onCopy={preventCopyPaste}
-                    onPaste={preventCopyPaste}
-                    rows="3"
-                    className={`w-full pl-10 pr-4 py-3 border ${errors.aim ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
-                    placeholder="Enter the aim of your experiment"
-                    required
-                  ></textarea>
-                </div>
-                {errors.aim && (
-                  <p className="mt-2 text-sm text-red-600">{errors.aim}</p>
-                )}
-              </div>
-              
-              {/* Procedure */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Procedure
-                </label>
-                <div className="relative">
-                  <div className="absolute top-3 left-3 text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
-                  </div>
-                  <textarea
-                    name="procedure"
-                    value={formData.procedure}
-                    onChange={handleInputChange}
-                    onCopy={preventCopyPaste}
-                    onPaste={preventCopyPaste}
-                    rows="5"
-                    className={`w-full pl-10 pr-4 py-3 border ${errors.procedure ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
-                    placeholder="Describe the step-by-step procedure followed in your experiment"
-                    required
-                  ></textarea>
-                </div>
-                {errors.procedure && (
-                  <p className="mt-2 text-sm text-red-600">{errors.procedure}</p>
-                )}
-              </div>
-            </div>
-            
-            {/* Program Upload Section */}
-            <div className="bg-slate-50 rounded-xl p-6 border border-gray-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                Program Screenshots
-              </h3>
-              
-              <div className="flex items-center justify-center p-6 border-2 border-blue-200 border-dashed rounded-xl bg-blue-50 transition-all duration-300 hover:bg-blue-100">
-                <div className="space-y-2 text-center">
-                  <svg
-                    className="mx-auto h-14 w-14 text-blue-500"
-                    stroke="currentColor"
-                    fill="none"
-                    viewBox="0 0 48 48"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <div className="flex flex-col sm:flex-row items-center justify-center text-sm text-gray-600">
-                    <label
-                      htmlFor="program-upload"
-                      className="relative cursor-pointer bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium text-white focus-within:outline-none transition duration-200 mx-2 mb-2 sm:mb-0"
-                    >
-                      <span>Select Files</span>
+
+              {ideas.map((idea, index) => (
+                <div key={idea.id} className="mb-6 pb-6">
+                  <div className="space-y-4">
+                    {/* Idea Title */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Idea Title
+                      </label>
                       <input
-                        id="program-upload"
-                        name="program-upload"
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="sr-only"
-                        onChange={(e) => handleImageUpload(e, 'program')}
+                        type="text"
+                        value={idea.title}
+                        onChange={(e) => handleIdeaChange(idea.id, 'title', e.target.value)}
+                        onCopy={preventCopyPaste}
+                        onPaste={preventCopyPaste}
+                        className={`block w-full px-4 py-3 border ${errors[`ideaTitle${idea.id}`] ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
+                        placeholder="Enter a catchy title for your idea"
+                        required
                       />
-                    </label>
-                    <p className="text-gray-600">or drag and drop</p>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    PNG, JPG, GIF up to 5MB each
-                  </p>
-                </div>
-              </div>
-              
-              {/* Display uploaded program images with preview */}
-              {programImages.length > 0 && (
-                <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {programImages.map((img, index) => (
-                    <div key={index} className="relative group rounded-xl overflow-hidden shadow-md transform transition duration-200 hover:scale-105 hover:shadow-lg">
-                      <img 
-                        src={img} 
-                        alt={`Program image ${index + 1}`} 
-                        className="h-40 w-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-70"></div>
-                      <div className="absolute bottom-0 left-0 right-0 p-3 flex justify-between items-center">
-                        <span className="text-white text-sm font-medium">Image {index + 1}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index, 'program')}
-                          className="p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full transition duration-200 transform hover:scale-110"
-                          title="Remove image"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
+                      {errors[`ideaTitle${idea.id}`] && (
+                        <p className="mt-2 text-sm text-red-600">{errors[`ideaTitle${idea.id}`]}</p>
+                      )}
                     </div>
-                  ))}
+
+                    {/* Idea Description */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Idea Description
+                      </label>
+                      <textarea
+                        value={idea.description}
+                        onChange={(e) => handleIdeaChange(idea.id, 'description', e.target.value)}
+                        onCopy={preventCopyPaste}
+                        onPaste={preventCopyPaste}
+                        rows="4"
+                        className={`block w-full px-4 py-3 border ${errors[`ideaDescription${idea.id}`] ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
+                        placeholder="Describe your idea in detail..."
+                        required
+                      ></textarea>
+                      {errors[`ideaDescription${idea.id}`] && (
+                        <p className="mt-2 text-sm text-red-600">{errors[`ideaDescription${idea.id}`]}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              )}
-              
-              {errors.programImages && (
-                <p className="mt-3 text-sm text-red-600 font-medium">{errors.programImages}</p>
-              )}
+              ))}
             </div>
             
-            {/* Output Upload Section */}
-            <div className="bg-slate-50 rounded-xl p-6 border border-gray-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Output Screenshots
-              </h3>
-              
-              <div className="flex items-center justify-center p-6 border-2 border-green-200 border-dashed rounded-xl bg-green-50 transition-all duration-300 hover:bg-green-100">
-                <div className="space-y-2 text-center">
-                  <svg
-                    className="mx-auto h-14 w-14 text-green-500"
-                    stroke="currentColor"
-                    fill="none"
-                    viewBox="0 0 48 48"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <div className="flex flex-col sm:flex-row items-center justify-center text-sm text-gray-600">
-                    <label
-                      htmlFor="output-upload"
-                      className="relative cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-medium text-white focus-within:outline-none transition duration-200 mx-2 mb-2 sm:mb-0"
-                    >
-                      <span>Select Files</span>
-                      <input
-                        id="output-upload"
-                        name="output-upload"
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="sr-only"
-                        onChange={(e) => handleImageUpload(e, 'output')}
-                      />
-                    </label>
-                    <p className="text-gray-600">or drag and drop</p>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    PNG, JPG, GIF up to 5MB each
-                  </p>
-                </div>
-              </div>
-              
-              {/* Display uploaded output images with preview */}
-              {outputImages.length > 0 && (
-                <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {outputImages.map((img, index) => (
-                    <div key={index} className="relative group rounded-xl overflow-hidden shadow-md transform transition duration-200 hover:scale-105 hover:shadow-lg">
-                      <img 
-                        src={img} 
-                        alt={`Output image ${index + 1}`} 
-                        className="h-40 w-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-70"></div>
-                      <div className="absolute bottom-0 left-0 right-0 p-3 flex justify-between items-center">
-                        <span className="text-white text-sm font-medium">Image {index + 1}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index, 'output')}
-                          className="p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full transition duration-200 transform hover:scale-110"
-                          title="Remove image"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {errors.outputImages && (
-                <p className="mt-3 text-sm text-red-600 font-medium">{errors.outputImages}</p>
-              )}
-            </div>
-            
-            {/* Result Section */}
-            <div className="bg-slate-50 rounded-xl p-6 border border-gray-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Result & Conclusion
-              </h3>
-              
-              <div className="relative">
-                <div className="absolute top-3 left-3 text-gray-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <textarea
-                  name="result"
-                  value={formData.result}
-                  onChange={handleInputChange}
-                  onCopy={preventCopyPaste}
-                  onPaste={preventCopyPaste}
-                  rows="4"
-                  className={`w-full pl-10 pr-4 py-3 border ${errors.result ? 'border-red-400' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150`}
-                  placeholder="Describe the outcomes and conclusions of your experiment"
-                  required
-                ></textarea>
-              </div>
-              {errors.result && (
-                <p className="mt-2 text-sm text-red-600">{errors.result}</p>
-              )}
-            </div>
             
             {/* Form Actions */}
             <div className="flex items-center justify-end space-x-6 pt-6 border-t border-gray-200">
@@ -1117,7 +645,7 @@ const Template = () => {
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    Generate Record PDF
+                    Generate Idea PDF
                   </div>
                 )}
               </button>
@@ -1127,7 +655,7 @@ const Template = () => {
       </div>
       
       {/* Simple Footer - Matching Header Style */}
-      <footer className="mt-12">
+      <footer className="mt-12">\
         <div className="max-w-5xl mx-auto">
           <div className="bg-white rounded-2xl shadow-xl p-6">
             <div className="flex flex-col md:flex-row justify-between items-center">
