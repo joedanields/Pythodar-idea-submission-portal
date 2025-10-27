@@ -338,12 +338,6 @@ const Template = () => {
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(11);
       pdf.text('Evaluator Signature:', leftCol, yPos);
-      yPos += 8;
-      
-      // Draw signature line with more space
-      const sigLineY = yPos + 20;
-      pdf.setLineWidth(0.3);
-      pdf.line(leftCol, sigLineY, leftCol + 70, sigLineY);
       
       // Add footer
       pdf.setFontSize(8);
